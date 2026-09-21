@@ -33,7 +33,7 @@
 | `stake(uint256, uint256)` | 用户 | 选择锁仓档位并质押 |
 | `unstake()` | 用户 | 锁仓到期后取回本金并领取全部奖励 |
 | `getReward()` | 用户 | 随时领取已累积奖励（不影响本金与锁仓） |
-| `earned(address)` / `pendingReward(address)` | view | 查询待领取奖励 |
+| `earned(address)` | view | 查询当前可领取奖励（已乘锁仓倍率和凭证加成） |
 
 **参数定稿**：
 
@@ -75,9 +75,16 @@
 
 ### 设计三：ERC1155 早期参与凭证（可转让的权益加成）
 
-**思路**：项目早期（管理员控制开关），新质押用户自动获得 1 张 ERC1155 凭证（每个地址最多 1 张）；持有凭证的用户在质押时奖励**额外 ×1.2**。早期窗口关闭后不能再铸造。
+**思路**：项目早期新质押的用户自动获得 1 张 ERC1155 凭证（每个地址最多 1 张）；持有凭证的用户质押奖励**额外 ×1.2**。
 
 **凭证设计：可转让**（对应本项目的定位是"权益凭证"而非"身份凭证"）。
+
+**"早期"的定义：部署后前 7 天（合约按时间戳自动判断，不依赖管理员手动开关）。**
+- 部署时合约自动设定 `earlyMintDeadline = block.timestamp + 7 days`
+- 这 7 天内（`block.timestamp <= earlyMintDeadline`）新质押的用户，没领过凭证的，`stake()` 时自动获得一张
+- **7 天到点后合约自动停止铸凭证**，无需任何人工操作
+- 管理员可用 `setEarlyMintDeadline` 应急调整截止时间（延长或提前关闭）
+- 已发出的凭证永久有效、可转让，加成权益跟随当前持有者
 
 **为什么可转让**：
 1. **凭证本质是权益资产**——早期参与者可以把凭证转让给迟到的人，凭证本身有流动性和价值（参考 Convex cvxCRV 可流通、Velodrome veNFT 有二级市场）
@@ -144,10 +151,8 @@ src/
 | `notifyRewardAmount(uint256)` | 注入周期奖励，开启/续接奖励周期 |
 | `setRewardsDuration(uint256)` | 设置周期长度（默认 30 天） |
 | `setLockTier(uint256, uint256, uint256)` | 调整锁仓档位（时长、倍率） |
-| `mintBoostToUser(address)` | 给早期用户铸造 ERC1155 凭证 |
 | `setBoostMultiplier(uint256)` | 调整凭证加成倍率（默认 1.2e18） |
-| `toggleEarlyMint(bool)` | 开/关早期凭证铸造窗口 |
-| `setRewardRate(uint256)` | 调整每秒奖励速率（备用） |
+| `setEarlyMintDeadline(uint256)` | 调整早期凭证窗口截止时间（默认部署后 7 天，到点合约自动关闭） |
 
 ---
 
@@ -196,8 +201,8 @@ src/
 
 ### 安装依赖
 ```bash
-forge install foundry-rs/forge-std --no-commit
-forge install openzeppelin/openzeppelin-contracts --no-commit
+forge install foundry-rs/forge-std
+forge install openzeppelin/openzeppelin-contracts
 forge remappings > remappings.txt
 ```
 
@@ -238,8 +243,8 @@ forge script script/Deploy.s.sol:DeployScript \
 ## 十、项目状态
 
 - [x] 设计定稿（本 README）
-- [ ] 合约实现（src/）
+- [x] 合约实现（src/：StakeToken / RewardToken / BoostCredential / TimeBoostStaking）
 - [ ] Foundry 单元测试（test/）
-- [ ] 部署脚本（script/）
+- [ ] 部署脚本（script/，含"将 BoostCredential owner 转给 TimeBoostStaking"）
 - [ ] Sepolia 部署 + Etherscan 源码验证
 - [ ] README 覆盖率数据补充
