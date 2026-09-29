@@ -11,23 +11,19 @@ import {BoostCredential} from "./BoostCredential.sol";
 /// @notice 质押 STAKE 代币，按周期预算获得 RT 奖励；锁仓时间越长奖励倍率越高；
 ///         持有早期 ERC1155 凭证的用户额外获得奖励加成。
 /// @dev 多笔质押模型：每个用户可同时持有多笔独立质押，每笔独立选档位、独立解锁时间。
-///      奖励会计采用 Synthetix 模型（rewardPerTokenStored + rewardDebt）。
 contract TimeBoostStaking is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    // ========== 不可变代币地址 ==========
     IERC20 public immutable STAKE_TOKEN;
     IERC20 public immutable REWARD_TOKEN;
     BoostCredential public immutable BOOST_CREDENTIAL;
 
-    // ========== 锁仓档位 ==========
     struct LockTier {
         uint256 lockDuration; // 锁仓秒数
         uint256 rewardMultiplier; // 奖励倍率（1e18 = 1.0x）
     }
     LockTier[] public lockTiers;
 
-    // ========== 单笔质押（多笔模型） ==========
     struct UserStake {
         uint256 amount; // 这笔质押本金
         uint256 rewardDebt; // 这笔上次结算基点
@@ -92,7 +88,6 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
         require(stakeAmount > 0, "Zero amount");
         require(tierIndex < lockTiers.length, "bad tier");
 
-        // 先刷新全局 rpT（用旧 totalStaked 结算到此刻）
         rewardPerTokenStored = rewardPerTokenStored + _freshRewardPerToken();
         lastUpdateTime = _lastTimeRewardApplicable();
 

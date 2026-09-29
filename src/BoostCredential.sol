@@ -8,10 +8,9 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 /// @notice 早期参与凭证（ERC1155）。项目早期质押的用户可获得一张，持有它在 Staking 中享受额外奖励加成。
 /// @dev 凭证可转让（按当前持有者判定加成），一个地址最多持有一张。
 contract BoostCredential is ERC1155, Ownable {
-    /// @notice 唯一一种凭证的 tokenId
+    
     uint256 public constant BOOST_TOKEN_ID = 0;
 
-    /// @notice 记录地址是否已经铸造过凭证（每人一张）
     mapping(address => bool) public hasMinted;
 
     event CredentialMinted(address indexed to, uint256 indexed tokenId);
