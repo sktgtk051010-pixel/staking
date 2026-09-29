@@ -69,11 +69,11 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
         // 早期凭证窗口：部署后 7 天内质押的用户可自动获得凭证
         earlyMintDeadline = block.timestamp + 7 days;
 
-        // 预设锁仓档位：0/7/30/90 天，倍率 1.0/1.05/1.15/1.3
+        // 预设锁仓档位：0/30/90/180 天，倍率 1.0/1.2/1.6/2.0
         lockTiers.push(LockTier({lockDuration: 0 days, rewardMultiplier: 1e18}));
-        lockTiers.push(LockTier({lockDuration: 7 days, rewardMultiplier: 1.05e18}));
-        lockTiers.push(LockTier({lockDuration: 30 days, rewardMultiplier: 1.15e18}));
-        lockTiers.push(LockTier({lockDuration: 90 days, rewardMultiplier: 1.3e18}));
+        lockTiers.push(LockTier({lockDuration: 30 days, rewardMultiplier: 1.2e18}));
+        lockTiers.push(LockTier({lockDuration: 90 days, rewardMultiplier: 1.6e18}));
+        lockTiers.push(LockTier({lockDuration: 180 days, rewardMultiplier: 2e18}));
     }
 
     // ============================================================
@@ -82,7 +82,7 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
 
     /// @notice 质押本金，选择锁仓档位（创建新的一笔，不影响已有质押）
     /// @param stakeAmount 质押数量
-    /// @param tierIndex 档位下标（0=不锁 1=7天 2=30天 3=90天）
+    /// @param tierIndex 档位下标（0=不锁 1=30天 2=90天 3=180天）
     /// @return stakeId 新创建的质押 id
     function stake(uint256 stakeAmount, uint256 tierIndex) external nonReentrant returns (uint256 stakeId) {
         require(stakeAmount > 0, "Zero amount");
@@ -93,7 +93,6 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
 
         LockTier memory tier = lockTiers[tierIndex];
 
-        // 创建新质押笔
         stakeId = nextStakeId++;
         stakes[stakeId] = UserStake({
             amount: stakeAmount,
@@ -107,7 +106,6 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
         STAKE_TOKEN.safeTransferFrom(msg.sender, address(this), stakeAmount);
         totalStaked += stakeAmount;
 
-        // 早期窗口内：没领过凭证的用户自动铸一张
         if (block.timestamp < earlyMintDeadline && !BOOST_CREDENTIAL.hasMinted(msg.sender)) {
             BOOST_CREDENTIAL.mintBoostCredential(msg.sender);
         }
@@ -128,10 +126,8 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
         require(s.amount > 0, "no stake");
         require(block.timestamp >= s.unlockTime, "still locked");
 
-        // 先结算所有笔的奖励
         _getReward(msg.sender);
 
-        // 从用户列表移除这笔
         _removeStakeId(msg.sender, stakeId);
 
         uint256 amount = s.amount;
@@ -165,7 +161,6 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
             totalReward += _calcStakeReward(stakes[ids[i]], currentRpt);
         }
 
-        // 凭证加成全局乘一次
         if (totalReward > 0 && BOOST_CREDENTIAL.userHasBoost(account)) {
             totalReward = (totalReward * boostMultiplier) / 1e18;
         }
@@ -220,7 +215,6 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
 
     /// @notice 结算用户所有笔的奖励并打款（getReward / unstake 前调用）
     function _getReward(address user) internal {
-        // 先刷新全局 rpT
         rewardPerTokenStored = rewardPerTokenStored + _freshRewardPerToken();
         lastUpdateTime = _lastTimeRewardApplicable();
 
@@ -231,7 +225,6 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < ids.length; i++) {
             UserStake storage s = stakes[ids[i]];
             totalReward += _calcStakeReward(s, currentRpt);
-            // 每笔 rewardDebt 推到此刻
             s.rewardDebt = (s.amount * currentRpt) / 1e18;
         }
 

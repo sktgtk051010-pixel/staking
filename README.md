@@ -110,9 +110,9 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 **思路**：项目方每个周期划定固定奖励预算，均摊到每秒（`rewardRate = 预算 / 周期秒数`），用户按质押份额比例分得奖励；周期结束后管理员重新注入奖励开启下一周期。
 
 **为什么用这个方案**：
-1. **成本精确可控**——每周期奖励总量固定，发完即止，避免无限增发
+1. **成本可控**——每周期奖励总量固定，发完即止，有助于控制增发节奏
 2. **周期轮换便于运营**——每 30 天根据市场情况决定加码或收缩，奖励发放成为运营杠杆
-3. **机制透明可审计**——奖励速率公开可查，用户可自行计算预期收益；周期结束奖励自动停止，不会出现"奖励池枯竭后仍在记账"的边界问题
+3. **机制透明可审计**——奖励速率公开可查，用户可自行计算预期收益；周期结束后奖励自动停止，降低奖励池枯竭后仍在记账的风险
 
 **核心状态变量**：
 
@@ -133,22 +133,23 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 
 | 档位下标 | 锁仓时长 | 奖励倍率 |
 |---------|---------|---------|
-| 0 | 不锁 | 1.0x |
-| 1 | 7 天 | 1.05x |
-| 2 | 30 天 | 1.15x |
-| 3 | 90 天 | 1.3x |
+| 0 | 不锁（灵活存取） | 1.0x |
+| 1 | 30 天 | 1.2x |
+| 2 | 90 天 | 1.6x |
+| 3 | 180 天 | 2.0x |
 
-> 倍率在合约内以 1e18 为精度存储（`1.0x = 1e18`，`1.3x = 1.3e18`）。
+> 倍率在合约内以 1e18 为精度存储（`1.0x = 1e18`，`2.0x = 2e18`）。
 
 **多笔模型的优势**：
-- 用户可同时持有"7 天灵活仓"和"90 天高倍率仓"
+- 用户可同时持有"30 天灵活仓"和"180 天高倍率仓"
 - 追加存款直接开新笔，不影响已有笔的档位和解锁时间
 - `unstake(stakeId)` 只取指定笔，其他笔不受影响
 
-**为什么这样设档位**：
-1. **90 天封顶、最高 1.3x，温和不激进**——参考 Convex vlCVX 的"16 周封顶"逻辑，避免用户资金被锁过久；1.3x 是温和激励区间，经济模型好解释
+**档位设计思路**：
+1. **180 天封顶、最高 2.0x**——锁仓时间有上限，用户资金不会被无限期锁定；2.0x 是温和的激励上限
 2. **分档而不是线性衰减**——用户一眼看懂"锁越久赚越多"，无需理解复杂的线性公式
-3. **7 天档降低尝试门槛**——新用户可以先用短周期体验质押流程，再决定是否长期锁仓
+3. **30 天起步**——至少锁一个月才算有承诺，避免超短期套利
+4. **倍率等差递增**：1.0 → 1.2 → 1.6 → 2.0，每档差距逐步拉大，长期锁仓的回报更明显
 
 ### 4.3 ERC1155 早期参与凭证
 
@@ -193,7 +194,7 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 | Solidity 版本 | 0.8.24 | 稳定版本，内置 overflow 检查 |
 | `rewardsDuration` | 30 天（2,592,000 秒） | 主流周期长度，兼顾演示与运营 |
 | 初始周期预算示例 | 10,000 RT | `rewardRate ≈ 3.86 × 10^15 wei/秒`（约 0.0039 RT/秒） |
-| 锁仓档位 | 0/7/30/90 天 | 倍率 1.0/1.05/1.15/1.3x，90 天封顶 |
+| 锁仓档位 | 0/30/90/180 天 | 倍率 1.0/1.2/1.6/2.0x，180 天封顶 |
 | `boostMultiplier` | 1.2x（1.2e18） | 凭证额外加成 |
 | `earlyMintDeadline` | 部署后 7 天 | 早期凭证窗口，到点自动关闭 |
 | 凭证 tokenId | 0 | ERC1155 单一种类凭证 |
@@ -211,7 +212,7 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 
 **系统做了什么**：
 - 将 1000 ST 从用户钱包转入质押合约
-- 创建一笔独立质押（编号 #1），30 天后解锁，享受 1.15x 奖励倍率
+- 创建一笔独立质押（编号 #1），30 天后解锁，享受 1.2x 奖励倍率
 - 如果此时在项目上线前 7 天的「早期窗口」内，系统自动向用户发放 1 张早期参与凭证（后续所有质押奖励额外 +20%）
 
 ### 第 2 步：追加质押（选 90 天档，创建第二笔）
@@ -219,7 +220,7 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 过了几天，用户想再存一笔，这次选「90 天档」，输入 500 ST，点击「质押」。
 
 **系统做了什么**：
-- 创建另一笔独立质押（编号 #2），90 天后解锁，享受 1.3x 奖励倍率
+- 创建另一笔独立质押（编号 #2），90 天后解锁，享受 1.6x 奖励倍率
 - **两笔完全独立**：第 1 笔仍在 30 天后解锁，第 2 笔 90 天后解锁，互不影响
 - 用户已经领过早期凭证，不会重复发放
 
@@ -246,7 +247,7 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 **系统做了什么**：
 - 先结算该用户所有笔的奖励并发放
 - 将第 1 笔的 1000 ST 本金退回用户钱包
-- **第 2 笔的 500 ST 仍在质押中**，继续享受 1.3x 奖励，不受影响
+- **第 2 笔的 500 ST 仍在质押中**，继续享受 1.6x 奖励，不受影响
 
 ### 第 6 步：90 天后，取回第二笔本金
 
@@ -265,7 +266,7 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 
 | 函数 | 说明 |
 |------|------|
-| `notifyRewardAmount(uint256)` | 注入周期奖励，开启/续接奖励周期；内置防超发检查 |
+| `notifyRewardAmount(uint256)` | 注入周期奖励，开启/续接奖励周期；内置超发检查 |
 | `setRewardsDuration(uint256)` | 设置周期长度（默认 30 天） |
 | `setLockTier(uint256, uint256, uint256)` | 调整锁仓档位（下标、时长、倍率） |
 | `setBoostMultiplier(uint256)` | 调整凭证加成倍率（默认 1.2e18） |
@@ -281,10 +282,10 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 
 **描述**：如果 `notifyRewardAmount` 注入的奖励量超过合约实际持有的 RT 余额，或 `rewardRate` 设置过高，可能导致用户领取奖励时合约余额不足，转账失败。
 
-**防护措施**：
+**已采取的措施**：
 - `notifyRewardAmount` 内置检查：`require(rewardRate <= balanceOf(this) / rewardsDuration, "rate too high")`
 - 周期结束后奖励自动停止（`_lastTimeRewardApplicable` 卡在 `periodFinish`）
-- 项目方注入奖励时需先 `approve`，合约通过 `safeTransferFrom` 转入，确保注入量与声明量一致
+- 项目方注入奖励时需先 `approve`，合约通过 `safeTransferFrom` 转入，有助于保证注入量与声明量一致
 
 **残留风险**：如果上一周期有未领取的奖励，管理员在周期未结束时再次注入，`rewardRate` 会将剩余部分并入新周期。这是设计行为，但管理员需注意不要重复注入导致余额被锁定。
 
@@ -292,21 +293,21 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 
 **描述**：`stake()`、`getReward()`、`unstake()` 中都有外部代币转账（`safeTransfer` / `safeTransferFrom`），如果 ST 或 RT 是恶意代币（在转账回调中重入合约），可能导致状态不一致。
 
-**防护措施**：
+**已采取的措施**：
 - 所有用户侧函数均加 `nonReentrant` 修饰符（ReentrancyGuard）
 - 遵循"Checks-Effects-Interactions"模式：先更新状态（`rewardDebt`、`totalStaked`、`stakes`），再执行外部转账
-- `unstake()` 中先 `delete stakes[stakeId]` 再转账，确保重入时该笔已清零
+- `unstake()` 中先 `delete stakes[stakeId]` 再转账，降低重入时该笔被重复操作的风险
 
-**残留风险**：`ReentrancyGuard` 只能防止同一合约的重入，无法防止跨合约重入（如恶意代币在回调中调用其他协议）。本项目使用标准 ERC20 代币作为 ST 和 RT，不存在恶意回调风险。
+**残留风险**：`ReentrancyGuard` 只能降低同一合约的重入风险，无法完全防止跨合约重入（如恶意代币在回调中调用其他协议）。本项目使用标准 ERC20 代币作为 ST 和 RT，恶意回调风险较低。
 
 ### 其他安全设计
 
-| 风险 | 防护 |
-|------|------|
+| 风险 | 已采取的措施 |
+|------|------------|
 | 非标准 ERC20 转账陷阱 | `SafeERC20` 包装所有转账 |
 | 精度丢失 | 奖励与倍率均放大 1e18 计算 |
 | 提前提款 | 每笔独立校验 `block.timestamp >= unlockTime` |
-| 凭证刷量 | `hasMinted` 限制每地址最多铸 1 张；加成按当前持有者 `balanceOf >= 1` 判断 |
+| 凭证重复铸造 | `hasMinted` 限制每地址最多铸 1 张；加成按当前持有者 `balanceOf >= 1` 判断 |
 | 整数溢出 | Solidity 0.8.x 内置 overflow/underflow 检查 |
 
 ---
@@ -349,16 +350,9 @@ forge script script/Deploy.s.sol:DeployScript \
 
 ## 十、参考与依据
 
-- **Synthetix StakingRewards**：`rewardRate + periodFinish` 周期预算模型与 `rewardPerTokenStored + rewardDebt` O(1) 会计模型出处
+- **Synthetix StakingRewards**：本项目奖励会计模型（`rewardRate + periodFinish + rewardPerTokenStored + rewardDebt`）的实现参考
   https://github.com/Synthetixio/synthetix/blob/develop/contracts/StakingRewards.sol
-- **SushiSwap MasterChef**：按区块/周期发放奖励、多池质押机制参考
-  https://github.com/sushiswap/sushiswapV1/blob/master/sushiswap/contracts/MasterChef.sol
-- **Curve veCRV**：时间加权收益模型、不可转让治理凭证（作为对比参考）
-  https://docs.curve.finance/
-- **Convex vlCVX**：分档/封顶锁仓设计（16 周封顶）
-  https://docs.convexfinance.com/
-- **Velodrome veNFT / cvxCRV**：权益型凭证可转让/可流通的参考
-  https://cryptogloss.io/glossary/ve-tokenomics/
+- 锁仓分档激励、可转让权益凭证的设计思路参考了 DeFi 行业常见做法
 
 ---
 
