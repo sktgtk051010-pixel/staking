@@ -30,7 +30,7 @@
                         ┌─────────────────────┐
                         │   项目方 (Owner)     │
                         └──────────┬──────────┘
-                                   │ notifyRewardAmount(10000 RT)
+                                   │ notifyRewardAmount(100000 RT)
                                    ▼
 ┌──────────┐    stake()     ┌──────────────────────┐    mint()     ┌──────────────────┐
 │   用户    │ ─────────────▶│  TimeBoostStaking    │ ─────────────▶│  BoostCredential  │
@@ -193,7 +193,7 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 |------|------|---------|
 | Solidity 版本 | 0.8.24 | 稳定版本，内置 overflow 检查 |
 | `rewardsDuration` | 30 天（2,592,000 秒） | 主流周期长度，兼顾演示与运营 |
-| 初始周期预算示例 | 10,000 RT | `rewardRate ≈ 3.86 × 10^15 wei/秒`（约 0.0039 RT/秒） |
+| 初始周期奖励 | 100,000 RT / 30 天 | 部署时调用 `notifyRewardAmount(100000 ether)` 注入；`rewardRate ≈ 3.858 × 10^16 wei/秒`（约 0.0386 RT/秒） |
 | 锁仓档位 | 0/30/90/180 天 | 倍率 1.0/1.2/1.6/2.0x，180 天封顶 |
 | `boostMultiplier` | 1.2x（1.2e18） | 凭证额外加成 |
 | `earlyMintDeadline` | 部署后 7 天 | 早期凭证窗口，到点自动关闭 |
