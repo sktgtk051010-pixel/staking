@@ -371,23 +371,3 @@ forge script script/Deploy.s.sol:DeployScript \
 ```
 
 > 需在 `.env` 中配置 `SEPOLIA_RPC_URL` 与 `ETHERSCAN_API_KEY`，并在 `foundry.toml` 中声明对应 `[rpc_endpoints]` 与 `[etherscan]` 配置。
-
----
-
-## 十、参考与依据
-
-- **Synthetix StakingRewards**：本项目奖励会计模型（`rewardRate + periodFinish + rewardPerTokenStored + rewardDebt`）的实现参考
-  https://github.com/Synthetixio/synthetix/blob/develop/contracts/StakingRewards.sol
-- 锁仓分档激励、可转让权益凭证的设计思路参考了 DeFi 行业常见做法
-
----
-
-## 十一、项目状态
-
-- [x] 设计定稿（本 README）
-- [x] 合约实现（src/：StakeToken / RewardToken / BoostCredential / TimeBoostStaking）
-- [x] 多笔质押模型重构
-- [x] Foundry 单元测试（test/：单元 + Fork 共 50+ 用例）
-- [x] 部署脚本（script/，含"将 BoostCredential owner 转给 TimeBoostStaking"）
-- [ ] Sepolia 部署 + Etherscan 源码验证
-- [x] README 覆盖率数据补充
