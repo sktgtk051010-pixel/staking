@@ -20,8 +20,7 @@
 - [七、管理员功能](#七管理员功能)
 - [八、安全分析](#八安全分析)
 - [九、开发环境与使用](#九开发环境与使用)
-- [十、参考与依据](#十参考与依据)
-- [十一、项目状态](#十一项目状态)
+- [十、当前部署地址（Sepolia）](#十当前部署地址sepolia)
 
 ---
 
@@ -372,7 +371,9 @@ forge script script/Deploy.s.sol:DeployScript \
 
 > 需在 `.env` 中配置 `SEPOLIA_RPC_URL` 与 `ETHERSCAN_API_KEY`，并在 `foundry.toml` 中声明对应 `[rpc_endpoints]` 与 `[etherscan]` 配置。
 
-### 当前部署地址（Sepolia 测试网）
+---
+
+## 十、当前部署地址（Sepolia）
 
 | 合约 | 地址 |
 |------|------|
