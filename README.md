@@ -371,3 +371,15 @@ forge script script/Deploy.s.sol:DeployScript \
 ```
 
 > 需在 `.env` 中配置 `SEPOLIA_RPC_URL` 与 `ETHERSCAN_API_KEY`，并在 `foundry.toml` 中声明对应 `[rpc_endpoints]` 与 `[etherscan]` 配置。
+
+### 当前部署地址（Sepolia 测试网）
+
+| 合约 | 地址 |
+|------|------|
+| `StakeToken` (ST) | `0x883C776249c222FB64E9e8AF3b73d347d3bb2C62` |
+| `RewardToken` (RT) | `0x6232bBf8a28f79c6d3DD79Af5FAaaD740a0B77EF` |
+| `BoostCredential` | `0x20b6C425b483251571d2dcC607Bf064Edb901Da2` |
+| `TimeBoostStaking` | `0xA9123f73Fa2068bDc5BB690bE35f0BF94C7b619F` |
+
+- 初始奖励：100,000 RT 已注入，`rewardRate ≈ 3.858 × 10^16 wei/秒`（约 0.0386 RT/秒）
+- 源码验证：待后续完成
