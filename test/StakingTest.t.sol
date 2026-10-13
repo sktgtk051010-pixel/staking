@@ -37,11 +37,11 @@ contract StakingTest is BaseTest {
     /// @notice 边界：超过最大活跃笔数（50笔）时 revert
     function test_Stake_RevertWhen_TooManyStakes() public {
         vm.startPrank(alice);
-        // 先开 50 笔（0天档，立即解锁）
+
         for (uint256 i = 0; i < 50; i++) {
             staking.stake(1 ether, 0);
         }
-        // 第 51 笔应该 revert
+
         vm.expectRevert("too many stakes");
         staking.stake(1 ether, 0);
         vm.stopPrank();
@@ -54,7 +54,6 @@ contract StakingTest is BaseTest {
         vm.prank(bob);
         staking.stake(200 ether, 3); // 180天档 2.0x → 有效 400
 
-        // totalStaked 按有效份额加权：160 + 400 = 560
         assertEq(staking.totalStaked(), 560 ether);
     }
 
@@ -181,8 +180,6 @@ contract StakingTest is BaseTest {
         skipDays(1);
 
         uint256 earned = staking.earned(alice);
-        // totalStaked 已按锁仓倍率加权，rewardRate 已按凭证加成折算：
-        // 1天奖励 = 1000万 / 30天 = 333333 RT（锁仓和凭证已在加权/折算中抵消）
         assertApproxEqAbs(earned, 333333 ether, 1000 ether);
     }
 
@@ -199,7 +196,6 @@ contract StakingTest is BaseTest {
         uint256 aliceEarned = staking.earned(alice);
         uint256 bobEarned = staking.earned(bob);
 
-        // bob 的锁仓倍率是 alice 的 2 倍 → 奖励比例精确为 2:1
         assertApproxEqAbs(bobEarned, aliceEarned * 2, aliceEarned / 1000);
     }
 
@@ -225,11 +221,9 @@ contract StakingTest is BaseTest {
         vm.prank(alice);
         staking.stake(1000 ether, 1); // 30天档
 
-        // 周期 30 天
         skipDays(30);
         uint256 earnedAt30 = staking.earned(alice);
 
-        // 再跳 10 天，奖励不应再增长
         skipDays(10);
         uint256 earnedAt40 = staking.earned(alice);
 

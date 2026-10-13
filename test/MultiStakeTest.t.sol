@@ -40,9 +40,8 @@ contract MultiStakeTest is BaseTest {
 
         (uint256 amount2, , , ) = staking.stakes(id2);
         assertEq(amount2, 200 ether);
-        // totalStaked 按有效份额（本金×锁仓倍率）加权计算：
-        // bob 5000*1.0 + alice id2 200*1.6 = 5000 + 320 = 5320
         assertEq(staking.totalStaked(), 5320 ether);
+        
         uint256[] memory ids = staking.getUserStakeIds(alice);
         assertEq(ids.length, 1);
         assertEq(ids[0], id2);

@@ -18,7 +18,6 @@ contract AdminTest is BaseTest {
 
         staking.notifyRewardAmount(newReward);
 
-        // rewardRate 已按 boostMultiplier(1.2x) 折算：amount * 1e18 / (duration * boost)
         uint256 boost = staking.boostMultiplier();
         uint256 expectedRate = (newReward * 1e18) / (30 days * boost);
         assertEq(staking.rewardRate(), expectedRate);
@@ -35,7 +34,7 @@ contract AdminTest is BaseTest {
 
     /// @notice 正常路径：周期未结束时注入，剩余奖励并入新周期
     function test_NotifyRewardAmount_MidPeriod() public {
-        skipDays(15); // 周期还剩15天
+        skipDays(15); 
 
         uint256 newReward = 50_000 ether;
         rewardToken.mint(owner, newReward);
@@ -43,7 +42,6 @@ contract AdminTest is BaseTest {
 
         staking.notifyRewardAmount(newReward);
 
-        // 初始 rewardRate 已按 boostMultiplier 折算
         uint256 boost = staking.boostMultiplier();
         uint256 initialRate = (10_000_000 ether * 1e18) / (30 days * boost);
         uint256 remaining = (30 days - 15 days) * initialRate;
@@ -59,7 +57,7 @@ contract AdminTest is BaseTest {
 
     /// @notice 正常路径：周期结束后设置周期长度
     function test_SetRewardsDuration_Success() public {
-        skipDays(31); // 先等当前周期结束才能改
+        skipDays(31); 
         staking.setRewardsDuration(60 days);
         assertEq(staking.rewardsDuration(), 60 days);
     }
@@ -73,14 +71,14 @@ contract AdminTest is BaseTest {
 
     /// @notice 边界：周期长度为 0 时 revert（防止除零）
     function test_SetRewardsDuration_RevertWhen_Zero() public {
-        skipDays(31); // 先等周期结束
+        skipDays(31); 
         vm.expectRevert("duration too short");
         staking.setRewardsDuration(0);
     }
 
     /// @notice 边界：周期中间改长度 revert（必须等周期结束）
     function test_SetRewardsDuration_RevertWhen_PeriodNotFinished() public {
-        skipDays(15); // 周期还剩15天
+        skipDays(15); 
         vm.expectRevert("period not finished");
         staking.setRewardsDuration(60 days);
     }
