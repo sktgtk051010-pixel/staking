@@ -134,6 +134,10 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 
 **思路**：用户每次调用 `stake()` 都创建一笔新的独立质押，自选锁仓档位；锁得越久，该笔的奖励倍率越高；锁仓期内该笔不能提取本金。
 
+**单地址最大活跃笔数：50 笔**
+- 为防止 gas 随笔数无限增长（领取/取回需遍历所有笔），单地址最多同时持有 50 笔活跃质押
+- 取回本金（`unstake`）后会释放名额，可继续开新笔
+
 **锁仓档位表**：
 
 | 档位下标 | 锁仓时长 | 奖励倍率 |
@@ -162,6 +166,11 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 - 管理员可用 `setEarlyMintDeadline` 应急调整截止时间
 - 已发出的凭证永久有效、可转让
 
+**已知限制：仅 EOA 自动铸造**
+- 早期窗口内自动铸造凭证时，仅对 EOA（普通钱包）生效
+- 合约钱包（多签、智能钱包等）在早期窗口内质押**不会自动获得凭证**（因为合约可能不支持 ERC1155Receiver 接口，铸造会导致整个 stake revert）
+- 合约钱包用户可以正常质押，只是拿不到早期加成；7 天后所有用户都不再自动铸造，差异自动消失
+
 **凭证设计：可转让**（权益凭证，非身份凭证）
 - 凭证本质是权益资产，早期参与者可转让给后来者，凭证本身具备流动性和市场价值
 - 可转让让早期参与者的贡献可以变现，也让后来者有机会通过购买凭证获得加成
@@ -170,12 +179,17 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 ### 4.4 奖励计算公式
 
 ```
-单笔奖励 = 该笔金额 × (当前rpT - 该笔rewardDebt) / 1e18 × 该笔锁仓倍率
+有效份额 = 该笔本金 × 该笔锁仓倍率 / 1e18
+单笔奖励 = 有效份额 × 当前rpT / 1e18 - 该笔rewardDebt
 
 用户总奖励 = Σ(每笔奖励) × (有凭证 ? 1.2 : 1)
 ```
 
-其中 `rpT`（rewardPerTokenStored）是全局累计指数，每秒增量 = `rewardRate / totalStaked`。
+**说明：**
+- `rpT`（rewardPerTokenStored）是全局累计指数，每秒增量 = `rewardRate / totalStaked`
+- `totalStaked` 是**有效质押总量**（Σ每笔本金 × 锁仓倍率），不是名义本金
+- `rewardDebt` 存的是**上次结算时这笔质押已赚的钱数**（= 有效份额 × 当时rpT / 1e18），不是 rpT 的值
+- 所以计算时不能直接拿 rpT 减 rewardDebt，要先乘有效份额再减
 
 ### 4.5 奖励随时领取（锁仓只约束本金）
 
@@ -369,7 +383,7 @@ forge script script/Deploy.s.sol:DeployScript \
   --rpc-url sepolia --broadcast --verify --slow
 ```
 
-> 需在 `.env` 中配置 `SEPOLIA_RPC_URL` 与 `ETHERSCAN_API_KEY`，并在 `foundry.toml` 中声明对应 `[rpc_endpoints]` 与 `[etherscan]` 配置。
+> 需在 `.env` 中配置 `PRIVATE_KEY`（部署者私钥，不带 0x 前缀）、`SEPOLIA_RPC_URL` 与 `ETHERSCAN_API_KEY`，并在 `foundry.toml` 中声明对应 `[rpc_endpoints]` 与 `[etherscan]` 配置。
 
 ---
 

@@ -40,7 +40,9 @@ contract MultiStakeTest is BaseTest {
 
         (uint256 amount2, , , ) = staking.stakes(id2);
         assertEq(amount2, 200 ether);
-        assertEq(staking.totalStaked(), 5200 ether); 
+        // totalStaked 按有效份额（本金×锁仓倍率）加权计算：
+        // bob 5000*1.0 + alice id2 200*1.6 = 5000 + 320 = 5320
+        assertEq(staking.totalStaked(), 5320 ether);
         uint256[] memory ids = staking.getUserStakeIds(alice);
         assertEq(ids.length, 1);
         assertEq(ids[0], id2);
@@ -60,13 +62,14 @@ contract MultiStakeTest is BaseTest {
     /// @notice 正常路径：多用户多笔质押，totalStaked 正确
     function test_MultipleUsers_MultipleStakes() public {
         vm.prank(alice);
-        staking.stake(100 ether, 1); 
+        staking.stake(100 ether, 1); // 100*1.2 = 120
         vm.prank(alice);
-        staking.stake(200 ether, 3); 
+        staking.stake(200 ether, 3); // 200*2.0 = 400
         vm.prank(bob);
-        staking.stake(300 ether, 2); 
+        staking.stake(300 ether, 2); // 300*1.6 = 480
 
-        assertEq(staking.totalStaked(), 600 ether);
+        // totalStaked 按有效份额加权：120 + 400 + 480 = 1000
+        assertEq(staking.totalStaked(), 1000 ether);
         assertEq(staking.getUserStakeIds(alice).length, 2);
         assertEq(staking.getUserStakeIds(bob).length, 1);
     }

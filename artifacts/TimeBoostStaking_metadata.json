@@ -1,0 +1,1011 @@
+{
+	"compiler": {
+		"version": "0.8.34+commit.80d5c536"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_stakeToken",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "_rewardToken",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "_boostCredential",
+						"type": "address"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					}
+				],
+				"name": "OwnableInvalidOwner",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "OwnableUnauthorizedAccount",
+				"type": "error"
+			},
+			{
+				"inputs": [],
+				"name": "ReentrancyGuardReentrantCall",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					}
+				],
+				"name": "SafeERC20FailedOperation",
+				"type": "error"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "newMultiplier",
+						"type": "uint256"
+					}
+				],
+				"name": "BoostMultiplierUpdated",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "newDeadline",
+						"type": "uint256"
+					}
+				],
+				"name": "EarlyMintDeadlineUpdated",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "index",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "duration",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "multiplier",
+						"type": "uint256"
+					}
+				],
+				"name": "LockTierUpdated",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "previousOwner",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "newOwner",
+						"type": "address"
+					}
+				],
+				"name": "OwnershipTransferred",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "periodFinish",
+						"type": "uint256"
+					}
+				],
+				"name": "RewardNotified",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "user",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "reward",
+						"type": "uint256"
+					}
+				],
+				"name": "RewardPaid",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "newDuration",
+						"type": "uint256"
+					}
+				],
+				"name": "RewardsDurationUpdated",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "user",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "stakeId",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "tierIndex",
+						"type": "uint256"
+					}
+				],
+				"name": "Staked",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "user",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "stakeId",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "Unstaked",
+				"type": "event"
+			},
+			{
+				"inputs": [],
+				"name": "BOOST_CREDENTIAL",
+				"outputs": [
+					{
+						"internalType": "contract BoostCredential",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "REWARD_TOKEN",
+				"outputs": [
+					{
+						"internalType": "contract IERC20",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "STAKE_TOKEN",
+				"outputs": [
+					{
+						"internalType": "contract IERC20",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "boostMultiplier",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "earlyMintDeadline",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "earned",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getReward",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "getUserStakeIds",
+				"outputs": [
+					{
+						"internalType": "uint256[]",
+						"name": "",
+						"type": "uint256[]"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "lastUpdateTime",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "lockTiers",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "lockDuration",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "rewardMultiplier",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "nextStakeId",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "notifyRewardAmount",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "owner",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "periodFinish",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "renounceOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "rewardPerTokenStored",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "rewardRate",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "rewardsDuration",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "newMultiplier",
+						"type": "uint256"
+					}
+				],
+				"name": "setBoostMultiplier",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "newDeadline",
+						"type": "uint256"
+					}
+				],
+				"name": "setEarlyMintDeadline",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "index",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "duration",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "multiplier",
+						"type": "uint256"
+					}
+				],
+				"name": "setLockTier",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "newDuration",
+						"type": "uint256"
+					}
+				],
+				"name": "setRewardsDuration",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "stakeAmount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "tierIndex",
+						"type": "uint256"
+					}
+				],
+				"name": "stake",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "stakeId",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "stakeOwner",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "stakes",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "rewardDebt",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "unlockTime",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "lockMultiplier",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "totalStaked",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "newOwner",
+						"type": "address"
+					}
+				],
+				"name": "transferOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "stakeId",
+						"type": "uint256"
+					}
+				],
+				"name": "unstake",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "userStakeIds",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"details": "多笔质押模型：每个用户可同时持有多笔独立质押，每笔独立选档位、独立解锁时间。",
+			"errors": {
+				"OwnableInvalidOwner(address)": [
+					{
+						"details": "The owner is not a valid owner account. (eg. `address(0)`)"
+					}
+				],
+				"OwnableUnauthorizedAccount(address)": [
+					{
+						"details": "The caller account is not authorized to perform an operation."
+					}
+				],
+				"ReentrancyGuardReentrantCall()": [
+					{
+						"details": "Unauthorized reentrant call."
+					}
+				],
+				"SafeERC20FailedOperation(address)": [
+					{
+						"details": "An operation with an ERC-20 token failed."
+					}
+				]
+			},
+			"kind": "dev",
+			"methods": {
+				"owner()": {
+					"details": "Returns the address of the current owner."
+				},
+				"renounceOwnership()": {
+					"details": "Leaves the contract without owner. It will not be possible to call `onlyOwner` functions. Can only be called by the current owner. NOTE: Renouncing ownership will leave the contract without an owner, thereby disabling any functionality that is only available to the owner."
+				},
+				"stake(uint256,uint256)": {
+					"params": {
+						"stakeAmount": "质押数量",
+						"tierIndex": "档位下标（0=不锁 1=30天 2=90天 3=180天）"
+					},
+					"returns": {
+						"stakeId": "新创建的质押 id"
+					}
+				},
+				"transferOwnership(address)": {
+					"details": "Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner."
+				},
+				"unstake(uint256)": {
+					"params": {
+						"stakeId": "要取回的质押 id"
+					}
+				}
+			},
+			"title": "TimeBoostStaking",
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"earned(address)": {
+					"notice": "现在可领取的奖励合计（所有笔，已乘锁仓倍率和凭证加成）"
+				},
+				"getReward()": {
+					"notice": "领取当前累计奖励（结算所有质押笔，不影响本金）"
+				},
+				"getUserStakeIds(address)": {
+					"notice": "查询用户所有的质押 id"
+				},
+				"notifyRewardAmount(uint256)": {
+					"notice": "注入新周期奖励（msg.sender 需先 approve rewardToken）"
+				},
+				"stake(uint256,uint256)": {
+					"notice": "质押本金，选择锁仓档位（创建新的一笔，不影响已有质押）"
+				},
+				"unstake(uint256)": {
+					"notice": "解锁后取回指定质押笔的本金"
+				}
+			},
+			"notice": "质押 STAKE 代币，按周期预算获得 RT 奖励；锁仓时间越长奖励倍率越高；         持有早期 ERC1155 凭证的用户额外获得奖励加成。",
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"src/TimeBoostStaking.sol": "TimeBoostStaking"
+		},
+		"evmVersion": "osaka",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": [
+			":@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+			":erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/",
+			":forge-std/=lib/forge-std/src/",
+			":halmos-cheatcodes/=lib/openzeppelin-contracts/lib/halmos-cheatcodes/src/",
+			":openzeppelin-contracts/=lib/openzeppelin-contracts/"
+		]
+	},
+	"sources": {
+		"lib/openzeppelin-contracts/contracts/access/Ownable.sol": {
+			"keccak256": "0xff6d0bb2e285473e5311d9d3caacb525ae3538a80758c10649a4d61029b017bb",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://8ed324d3920bb545059d66ab97d43e43ee85fd3bd52e03e401f020afb0b120f6",
+				"dweb:/ipfs/QmfEckWLmZkDDcoWrkEvMWhms66xwTLff9DDhegYpvHo1a"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/interfaces/IERC1363.sol": {
+			"keccak256": "0xd5ea07362ab630a6a3dee4285a74cf2377044ca2e4be472755ad64d7c5d4b69d",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://da5e832b40fc5c3145d3781e2e5fa60ac2052c9d08af7e300dc8ab80c4343100",
+				"dweb:/ipfs/QmTzf7N5ZUdh5raqtzbM11yexiUoLC9z3Ws632MCuycq1d"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol": {
+			"keccak256": "0x0afcb7e740d1537b252cb2676f600465ce6938398569f09ba1b9ca240dde2dfc",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://1c299900ac4ec268d4570ecef0d697a3013cd11a6eb74e295ee3fbc945056037",
+				"dweb:/ipfs/Qmab9owJoxcA7vJT5XNayCMaUR1qxqj1NDzzisduwaJMcZ"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol": {
+			"keccak256": "0x1a6221315ce0307746c2c4827c125d821ee796c74a676787762f4778671d4f44",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://1bb2332a7ee26dd0b0de9b7fe266749f54820c99ab6a3bcb6f7e6b751d47ee2d",
+				"dweb:/ipfs/QmcRWpaBeCYkhy68PR3B4AgD7asuQk7PwkWxrvJbZcikLF"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol": {
+			"keccak256": "0xd735962e3d6660884153ba8a972b5f100dde4c482f2ff1c525ba7fdefb154cbd",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://5a264d17b093f585844b0d977e9f60555b8c8d6513b304fde863cdf652a0d336",
+				"dweb:/ipfs/QmWXfaJisjVnrjTUjZGryZpMob9wKivvtbodLS3PTc1ttq"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol": {
+			"keccak256": "0x1b88b3fb3d85ba5496d7d5f396f83ee1fddcdd6762059ff65992655b67920998",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://89393bb3212da1c0889601b9706a07b39419ddc4d2faab9eaf6e7f9152cf6a1c",
+				"dweb:/ipfs/QmcCfzzxv1Bkdz1c1yF4gQCeYb6Us5BJANnzTFqawfd1HL"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol": {
+			"keccak256": "0x405aba2c4c654f9ee77437739109afc694bec03a074f978733c11205927d774b",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://4f573eec7a4e9f9155e23cc593e1cf1c90f8d0b737aa11c50aab35f26b377af5",
+				"dweb:/ipfs/Qmbg8NLfyicH2fQjnzCkdTT3zt2xt8zjdCZMz1eZdMfcGV"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol": {
+			"keccak256": "0xf189f9b417fe1931e1ab706838aff1128528694a9fcdb5ff7665197f2ca57d09",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://2ff0143c836c8c9f85d13708733c09e21251395847fccfb518bf3b556726a840",
+				"dweb:/ipfs/QmP69sjjrQrhYAsvCSSB69Bx66SiUPdQUqdzMYnf4wANHm"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155Receiver.sol": {
+			"keccak256": "0x6ec6d7fce29668ede560c7d2e10f9d10de3473f5298e431e70a5767db42fa620",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://ac0139e51874aeec0730d040e57993187541777eb01d5939c06d5d2b986a54e8",
+				"dweb:/ipfs/QmZbMbdPzusXuX9FGkyArV8hgzKLBZaL5RzMtCdCawtwPF"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/IERC1155MetadataURI.sol": {
+			"keccak256": "0x98c32de9b02f43eba7c0aba9fadf331cffb35a8d2076dce1d556c8f2cad704aa",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://38f68f76e741cce3ca4e0f8ece5ab9d69a203829311a403bafc8f7b95a7e6d63",
+				"dweb:/ipfs/QmZ8PrDXU5DiZ7fzEoRN7vHMQdemtsqvYVV5AdvAnScS4o"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/token/ERC1155/utils/ERC1155Utils.sol": {
+			"keccak256": "0xdbf3265178e039e8b2bc70269ff7afb14150ba67e8707a9f478567e9088d3809",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://ed31db72d06467750384186cfd8ed4a2e48dd930686483627c7164627227fac9",
+				"dweb:/ipfs/QmNNJRLqZd2qPE92JXqnD1ndocDJyeCF237az7BWQfgDGo"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol": {
+			"keccak256": "0x74ed01eb66b923d0d0cfe3be84604ac04b76482a55f9dd655e1ef4d367f95bc2",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://5282825a626cfe924e504274b864a652b0023591fa66f06a067b25b51ba9b303",
+				"dweb:/ipfs/QmeCfPykghhMc81VJTrHTC7sF6CRvaA1FXVq2pJhwYp1dV"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol": {
+			"keccak256": "0xd6fa4088198f04eef10c5bce8a2f4d60554b7ec4b987f684393c01bf79b94d9f",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://f95ee0bbd4dd3ac730d066ba3e785ded4565e890dbec2fa7d3b9fe3bad9d0d6e",
+				"dweb:/ipfs/QmSLr6bHkPFWT7ntj34jmwfyskpwo97T9jZUrk5sz3sdtR"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol": {
+			"keccak256": "0x318ea37780610ca7808852275651885d428669402b81488cb7434fde361e9704",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://4aad80ad93cedad85619900fd7c2084c4d2f4b28f1dbda27e491c5f4fd31025d",
+				"dweb:/ipfs/QmUyXtX7FUi2u1W5fs7ufka9XkRVb5ss2menQHTsrsSmqZ"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/utils/Arrays.sol": {
+			"keccak256": "0x772f0c778626a7bdcbcbabca74b825ae9b9dc89d2a47a98b402b1187fbaa63a4",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://eba1d46e58e8880b45c6d51245dc94585b81d6d7290ca77ef50037a6193ed301",
+				"dweb:/ipfs/Qme3CWun5qQACjGEerT2MCvhs6brKGFfJirGnzV1ypKTXA"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/utils/Comparators.sol": {
+			"keccak256": "0x302eecd8cf323b4690e3494a7d960b3cbce077032ab8ef655b323cdd136cec58",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://49ba706f1bc476d68fe6c1fad75517acea4e9e275be0989b548e292eb3a3eacd",
+				"dweb:/ipfs/QmeBpvcdGWzWMKTQESUCEhHgnEQYYATVwPxLMxa6vMT7jC"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/utils/Context.sol": {
+			"keccak256": "0x493033a8d1b176a037b2cc6a04dad01a5c157722049bbecf632ca876224dd4b2",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://6a708e8a5bdb1011c2c381c9a5cfd8a9a956d7d0a9dc1bd8bcdaf52f76ef2f12",
+				"dweb:/ipfs/Qmax9WHBnVsZP46ZxEMNRQpLQnrdE4dK8LehML1Py8FowF"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/utils/Panic.sol": {
+			"keccak256": "0xf7fe324703a64fc51702311dc51562d5cb1497734f074e4f483bfb6717572d7a",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://c6a5ff4f9fd8649b7ee20800b7fa387d3465bd77cf20c2d1068cd5c98e1ed57a",
+				"dweb:/ipfs/QmVSaVJf9FXFhdYEYeCEfjMVHrxDh5qL4CGkxdMWpQCrqG"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol": {
+			"keccak256": "0xa516cbf1c7d15d3517c2d668601ce016c54395bf5171918a14e2686977465f53",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://1e1d079e8edfb58efd23a311e315a4807b01b5d1cf153f8fa2d0608b9dec3e99",
+				"dweb:/ipfs/QmTBExeX2SDTkn5xbk5ssbYSx7VqRp9H4Ux1CY4uQM4b9N"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/utils/SlotDerivation.sol": {
+			"keccak256": "0x94045fd4f268edf2b2d01ef119268548c320366d6f5294ad30c1b8f9d4f5225f",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://edfda81f426f8948b3834115c21e83c48180e6db0d2a8cd2debb2185ed349337",
+				"dweb:/ipfs/QmdYZneFyDAux1BuWQxLAdqtABrGS2k9WYCa7C9dvpKkWv"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol": {
+			"keccak256": "0xcf74f855663ce2ae00ed8352666b7935f6cddea2932fdf2c3ecd30a9b1cd0e97",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://9f660b1f351b757dfe01438e59888f31f33ded3afcf5cb5b0d9bf9aa6f320a8b",
+				"dweb:/ipfs/QmarDJ5hZEgBtCmmrVzEZWjub9769eD686jmzb2XpSU1cM"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/utils/introspection/ERC165.sol": {
+			"keccak256": "0x2d9dc2fe26180f74c11c13663647d38e259e45f95eb88f57b61d2160b0109d3e",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://81233d1f98060113d9922180bb0f14f8335856fe9f339134b09335e9f678c377",
+				"dweb:/ipfs/QmWh6R35SarhAn4z2wH8SU456jJSYL2FgucfTFgbHJJN4E"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol": {
+			"keccak256": "0x8891738ffe910f0cf2da09566928589bf5d63f4524dd734fd9cedbac3274dd5c",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://971f954442df5c2ef5b5ebf1eb245d7105d9fbacc7386ee5c796df1d45b21617",
+				"dweb:/ipfs/QmadRjHbkicwqwwh61raUEapaVEtaLMcYbQZWs9gUkgj3u"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/utils/math/Math.sol": {
+			"keccak256": "0x59973a93b1f983f94e10529f46ca46544a9fec2b5f56fb1390bbe9e0dc79f857",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://c55ef8f0b9719790c2ae6f81d80a59ffb89f2f0abe6bc065585bd79edce058c5",
+				"dweb:/ipfs/QmNNmCbX9NjPXKqHJN8R1WC2rNeZSQrPZLd6FF6AKLyH5Y"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol": {
+			"keccak256": "0xc8cae21c9ae4a46e5162ff9bf5b351d6fa6a6eba72d515f3bc1bdfeda7fdf083",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://ce830ebcf28e31643caba318996db3763c36d52cd0f23798ba83c135355d45e9",
+				"dweb:/ipfs/QmdGPcvptHN7UBCbUYBbRX3hiRVRFLRwno8b4uga6uFNif"
+			]
+		},
+		"src/BoostCredential.sol": {
+			"keccak256": "0x5318f41b056ba3e11fc4df9b00ae9c65525d9e586258fce3eeea461603bd3670",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://bf389f6e8f05c6840fb9c9b94278cfcbddbd9110e66bdc6aaaf6fe14be93535f",
+				"dweb:/ipfs/QmVk8VpjDAm1L9PY8xYq9AQGWwRXkgrB5BH1CUVaW7EoZJ"
+			]
+		},
+		"src/TimeBoostStaking.sol": {
+			"keccak256": "0x9ada7e9fe4231e3b5d0abaf95f4fdadf134908aa07af49dcb979f69401a0c6f4",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://f7d3487baa5e20edaf96a044813c675243fa68574632d5450860691aff013ca9",
+				"dweb:/ipfs/QmUY5VFLPGEsQdeGPJM8tin4TvdumPj935d6A388ParDfr"
+			]
+		}
+	},
+	"version": 1
+}

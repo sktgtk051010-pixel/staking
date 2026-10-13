@@ -18,7 +18,10 @@ contract AdminTest is BaseTest {
 
         staking.notifyRewardAmount(newReward);
 
-        assertEq(staking.rewardRate(), newReward / (30 days));
+        // rewardRate 已按 boostMultiplier(1.2x) 折算：amount * 1e18 / (duration * boost)
+        uint256 boost = staking.boostMultiplier();
+        uint256 expectedRate = (newReward * 1e18) / (30 days * boost);
+        assertEq(staking.rewardRate(), expectedRate);
         assertEq(staking.periodFinish(), block.timestamp + 30 days);
         assertEq(staking.lastUpdateTime(), block.timestamp);
     }
@@ -40,8 +43,11 @@ contract AdminTest is BaseTest {
 
         staking.notifyRewardAmount(newReward);
 
-        uint256 remaining = (30 days - 15 days) * (10_000_000 ether / 30 days);
-        uint256 expectedRate = (remaining + newReward) / (30 days);
+        // 初始 rewardRate 已按 boostMultiplier 折算
+        uint256 boost = staking.boostMultiplier();
+        uint256 initialRate = (10_000_000 ether * 1e18) / (30 days * boost);
+        uint256 remaining = (30 days - 15 days) * initialRate;
+        uint256 expectedRate = ((remaining + newReward) * 1e18) / (30 days * boost);
 
         assertApproxEqAbs(staking.rewardRate(), expectedRate, 10);
         assertEq(staking.periodFinish(), block.timestamp + 30 days);
@@ -51,8 +57,9 @@ contract AdminTest is BaseTest {
     //                   setRewardsDuration
     // ============================================================
 
-    /// @notice 正常路径：设置周期长度
+    /// @notice 正常路径：周期结束后设置周期长度
     function test_SetRewardsDuration_Success() public {
+        skipDays(31); // 先等当前周期结束才能改
         staking.setRewardsDuration(60 days);
         assertEq(staking.rewardsDuration(), 60 days);
     }
@@ -61,6 +68,20 @@ contract AdminTest is BaseTest {
     function test_SetRewardsDuration_RevertWhen_NotOwner() public {
         vm.prank(alice);
         vm.expectRevert();
+        staking.setRewardsDuration(60 days);
+    }
+
+    /// @notice 边界：周期长度为 0 时 revert（防止除零）
+    function test_SetRewardsDuration_RevertWhen_Zero() public {
+        skipDays(31); // 先等周期结束
+        vm.expectRevert("duration too short");
+        staking.setRewardsDuration(0);
+    }
+
+    /// @notice 边界：周期中间改长度 revert（必须等周期结束）
+    function test_SetRewardsDuration_RevertWhen_PeriodNotFinished() public {
+        skipDays(15); // 周期还剩15天
+        vm.expectRevert("period not finished");
         staking.setRewardsDuration(60 days);
     }
 
@@ -84,6 +105,18 @@ contract AdminTest is BaseTest {
         staking.setLockTier(1, 60 days, 1.5e18);
     }
 
+    /// @notice 边界：锁仓倍率超过上限（5倍）时 revert
+    function test_SetLockTier_RevertWhen_TooHigh() public {
+        vm.expectRevert("multiplier too high");
+        staking.setLockTier(1, 60 days, 6e18); // 6 倍 > 上限 5 倍
+    }
+
+    /// @notice 边界：档位下标越界时 revert
+    function test_SetLockTier_RevertWhen_InvalidIndex() public {
+        vm.expectRevert("bad tier");
+        staking.setLockTier(99, 60 days, 1.5e18); // 不存在的档位
+    }
+
     // ============================================================
     //                   setBoostMultiplier
     // ============================================================
@@ -99,6 +132,12 @@ contract AdminTest is BaseTest {
         vm.prank(alice);
         vm.expectRevert();
         staking.setBoostMultiplier(1.5e18);
+    }
+
+    /// @notice 边界：凭证加成超过上限（2倍）时 revert
+    function test_SetBoostMultiplier_RevertWhen_TooHigh() public {
+        vm.expectRevert("boost too high");
+        staking.setBoostMultiplier(3e18); // 3 倍 > 上限 2 倍
     }
 
     // ============================================================

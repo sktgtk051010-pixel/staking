@@ -36,6 +36,8 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
     mapping(uint256 => address) public stakeOwner; // stakeId → 持有人
     mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 stakeId 列表
 
+    uint256 public constant MAX_STAKES_PER_USER = 50; // 单地址最大活跃质押笔数（防止 gas 无限增长）
+
     // ========== 奖励周期（Synthetix 模型） ==========
     uint256 public rewardRate; // 每秒奖励量（wei）
     uint256 public rewardsDuration; // 周期秒数
@@ -87,6 +89,7 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
     function stake(uint256 stakeAmount, uint256 tierIndex) external nonReentrant returns (uint256 stakeId) {
         require(stakeAmount > 0, "Zero amount");
         require(tierIndex < lockTiers.length, "bad tier");
+        require(userStakeIds[msg.sender].length < MAX_STAKES_PER_USER, "too many stakes");
 
         rewardPerTokenStored = rewardPerTokenStored + _freshRewardPerToken();
         lastUpdateTime = _lastTimeRewardApplicable();
@@ -96,17 +99,22 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
         stakeId = nextStakeId++;
         stakes[stakeId] = UserStake({
             amount: stakeAmount,
-            rewardDebt: (stakeAmount * rewardPerTokenStored) / 1e18,
+            rewardDebt: ((stakeAmount * tier.rewardMultiplier / 1e18) * rewardPerTokenStored) / 1e18,
             unlockTime: block.timestamp + tier.lockDuration,
             lockMultiplier: tier.rewardMultiplier
         });
         stakeOwner[stakeId] = msg.sender;
         userStakeIds[msg.sender].push(stakeId);
+        totalStaked += (stakeAmount * tier.rewardMultiplier) / 1e18;
 
         STAKE_TOKEN.safeTransferFrom(msg.sender, address(this), stakeAmount);
-        totalStaked += stakeAmount;
 
-        if (block.timestamp < earlyMintDeadline && !BOOST_CREDENTIAL.hasMinted(msg.sender)) {
+        // 早期窗口内自动铸造凭证，但仅对 EOA 生效
+        if (
+            block.timestamp < earlyMintDeadline &&
+            !BOOST_CREDENTIAL.hasMinted(msg.sender) &&
+            msg.sender.code.length == 0
+        ) {
             BOOST_CREDENTIAL.mintBoostCredential(msg.sender);
         }
 
@@ -131,7 +139,7 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
         _removeStakeId(msg.sender, stakeId);
 
         uint256 amount = s.amount;
-        totalStaked -= amount;
+        totalStaked -= (amount * s.lockMultiplier) / 1e18;
         delete stakes[stakeId];
         delete stakeOwner[stakeId];
 
@@ -171,18 +179,20 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
     // ============================================================
 
     /// @notice 注入新周期奖励（msg.sender 需先 approve rewardToken）
+    /// @dev rewardRate 已按 boostMultiplier 折算，池子余额刚好覆盖最大支出
     function notifyRewardAmount(uint256 amount) external onlyOwner {
+        rewardPerTokenStored = rewardPerTokenStored + _freshRewardPerToken();
+        lastUpdateTime = _lastTimeRewardApplicable();
+
         REWARD_TOKEN.safeTransferFrom(msg.sender, address(this), amount);
 
         if (block.timestamp >= periodFinish) {
-            rewardRate = amount / rewardsDuration;
+            rewardRate = (amount * 1e18) / (rewardsDuration * boostMultiplier);
         } else {
             uint256 remaining = periodFinish - block.timestamp;
             uint256 leftover = remaining * rewardRate;
-            rewardRate = (leftover + amount) / rewardsDuration;
+            rewardRate = ((leftover + amount) * 1e18) / (rewardsDuration * boostMultiplier);
         }
-
-        require(rewardRate <= REWARD_TOKEN.balanceOf(address(this)) / rewardsDuration, "rate too high");
 
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + rewardsDuration;
@@ -190,16 +200,21 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
     }
 
     function setRewardsDuration(uint256 newDuration) external onlyOwner {
+        require(newDuration > 0, "duration too short");
+        require(block.timestamp > periodFinish, "period not finished");
         rewardsDuration = newDuration;
         emit RewardsDurationUpdated(newDuration);
     }
 
     function setLockTier(uint256 index, uint256 duration, uint256 multiplier) external onlyOwner {
+        require(index < lockTiers.length, "bad tier");
+        require(multiplier <= 5e18, "multiplier too high"); // 最多 5 倍
         lockTiers[index] = LockTier({lockDuration: duration, rewardMultiplier: multiplier});
         emit LockTierUpdated(index, duration, multiplier);
     }
 
     function setBoostMultiplier(uint256 newMultiplier) external onlyOwner {
+        require(newMultiplier <= 2e18, "boost too high"); // 最多 2 倍
         boostMultiplier = newMultiplier;
         emit BoostMultiplierUpdated(newMultiplier);
     }
@@ -225,7 +240,7 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < ids.length; i++) {
             UserStake storage s = stakes[ids[i]];
             totalReward += _calcStakeReward(s, currentRpt);
-            s.rewardDebt = (s.amount * currentRpt) / 1e18;
+            s.rewardDebt = ((s.amount * s.lockMultiplier / 1e18) * currentRpt) / 1e18;
         }
 
         if (totalReward > 0) {
@@ -238,10 +253,12 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
     }
 
     /// @notice 计算单笔质押到此刻的奖励（不含凭证加成）
+    /// @dev 按有效份额（本金×锁仓倍率）计算，rewardDebt 同口径
     function _calcStakeReward(UserStake storage s, uint256 currentRpt) internal view returns (uint256) {
         if (s.amount == 0) return 0;
-        uint256 base = (s.amount * currentRpt) / 1e18 - s.rewardDebt;
-        return (base * s.lockMultiplier) / 1e18;
+        uint256 effectiveAmount = (s.amount * s.lockMultiplier) / 1e18;
+        uint256 base = (effectiveAmount * currentRpt) / 1e18 - s.rewardDebt;
+        return base;
     }
 
     /// @notice 从用户的 stakeId 列表中移除指定 id（交换到末尾再 pop）

@@ -56,7 +56,8 @@ contract ForkTest is Test {
         uint256 stakeId = staking.stake(100 ether, 1); // 30天档
 
         assertEq(stakeId, 1);
-        assertEq(staking.totalStaked(), 100 ether);
+        // totalStaked 按有效份额加权：100 ether × 1.2x = 120 ether
+        assertEq(staking.totalStaked(), 120 ether);
         assertEq(stakeToken.balanceOf(address(staking)), 100 ether);
 
         skip(1 days);
@@ -116,7 +117,8 @@ contract ForkTest is Test {
         assertEq(id1, 1);
         assertEq(id2, 2);
         assertEq(staking.getUserStakeIds(alice).length, 2);
-        assertEq(staking.totalStaked(), 300 ether);
+        // totalStaked 按有效份额加权：100×1.2 + 200×2.0 = 120 + 400 = 520
+        assertEq(staking.totalStaked(), 520 ether);
     }
 
     /// @notice Fork 环境下周期结束后奖励停止

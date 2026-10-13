@@ -34,14 +34,28 @@ contract StakingTest is BaseTest {
         staking.stake(100 ether, 4); 
     }
 
+    /// @notice 边界：超过最大活跃笔数（50笔）时 revert
+    function test_Stake_RevertWhen_TooManyStakes() public {
+        vm.startPrank(alice);
+        // 先开 50 笔（0天档，立即解锁）
+        for (uint256 i = 0; i < 50; i++) {
+            staking.stake(1 ether, 0);
+        }
+        // 第 51 笔应该 revert
+        vm.expectRevert("too many stakes");
+        staking.stake(1 ether, 0);
+        vm.stopPrank();
+    }
+
     /// @notice 正常路径：质押后 totalStaked 正确累加（不同档位）
     function test_Stake_UpdatesTotalStaked() public {
         vm.prank(alice);
-        staking.stake(100 ether, 2); // 90天档
+        staking.stake(100 ether, 2); // 90天档 1.6x → 有效 160
         vm.prank(bob);
-        staking.stake(200 ether, 3); // 180天档
+        staking.stake(200 ether, 3); // 180天档 2.0x → 有效 400
 
-        assertEq(staking.totalStaked(), 300 ether);
+        // totalStaked 按有效份额加权：160 + 400 = 560
+        assertEq(staking.totalStaked(), 560 ether);
     }
 
     // ============================================================
@@ -91,7 +105,6 @@ contract StakingTest is BaseTest {
 
     /// @notice 正常路径：到期后取回本金，奖励一并结算
     function test_Unstake_Success() public {
-        // bob 也质押一部分，避免 alice 占 100% 导致倍率奖励超预算
         vm.prank(bob);
         staking.stake(5000 ether, 0);
 
@@ -168,9 +181,9 @@ contract StakingTest is BaseTest {
         skipDays(1);
 
         uint256 earned = staking.earned(alice);
-        // alice 占 totalStaked 的 100%，1天基础奖励 = 1000万/30 ≈ 333333 RT
-        // 锁仓倍率 1.2x × 早期凭证加成 1.2x = 1.44 倍 → 约 480000 RT
-        assertApproxEqAbs(earned, 480000 ether, 1000 ether);
+        // totalStaked 已按锁仓倍率加权，rewardRate 已按凭证加成折算：
+        // 1天奖励 = 1000万 / 30天 = 333333 RT（锁仓和凭证已在加权/折算中抵消）
+        assertApproxEqAbs(earned, 333333 ether, 1000 ether);
     }
 
     /// @notice 正常路径：锁仓倍率生效——同本金同凭证，180天档(2.0x)奖励是0天档(1.0x)的2倍
@@ -223,9 +236,10 @@ contract StakingTest is BaseTest {
         assertEq(earnedAt40, earnedAt30);
     }
 
-    /// @notice 正常路径：奖励速率正确
+    /// @notice 正常路径：奖励速率正确（已按 boostMultiplier 折算）
     function test_RewardRate_Correct() public view {
-        uint256 expectedRate = uint256(10_000_000 ether) / (30 days);
+        uint256 boost = staking.boostMultiplier();
+        uint256 expectedRate = (10_000_000 ether * 1e18) / (30 days * boost);
         assertEq(staking.rewardRate(), expectedRate);
     }
 }
