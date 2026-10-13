@@ -38,7 +38,6 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
 
     uint256 public constant MAX_STAKES_PER_USER = 50; // 单地址最大活跃质押笔数（防止 gas 无限增长）
 
-    // ========== 奖励周期（Synthetix 模型） ==========
     uint256 public rewardRate; // 每秒奖励量（wei）
     uint256 public rewardsDuration; // 周期秒数
     uint256 public periodFinish; // 当前周期结束时间
@@ -49,7 +48,7 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
 
     // ========== 凭证加成 ==========
     uint256 public boostMultiplier = 1.2e18; // 凭证额外加成 1.2x
-    uint256 public earlyMintDeadline; // 早期凭证窗口截止时间戳（部署后 7 天）
+    uint256 public earlyMintDeadline; // 早期凭证窗口截止时间戳（部署后 7 天）,只对 EOA 生效
 
     // ========== 事件 ==========
     event Staked(address indexed user, uint256 indexed stakeId, uint256 amount, uint256 tierIndex);
@@ -109,7 +108,7 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
 
         STAKE_TOKEN.safeTransferFrom(msg.sender, address(this), stakeAmount);
 
-        // 早期窗口内自动铸造凭证，但仅对 EOA 生效
+        // 早期窗口内自动铸造凭证，仅对 EOA 生效
         if (
             block.timestamp < earlyMintDeadline &&
             !BOOST_CREDENTIAL.hasMinted(msg.sender) &&
