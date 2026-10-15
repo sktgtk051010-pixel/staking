@@ -135,7 +135,7 @@ contract AdminTest is BaseTest {
     /// @notice 边界：凭证加成超过上限（2倍）时 revert
     function test_SetBoostMultiplier_RevertWhen_TooHigh() public {
         vm.expectRevert("boost too high");
-        staking.setBoostMultiplier(3e18); // 3 倍 > 上限 2 倍
+        staking.setBoostMultiplier(3e18); 
     }
 
     // ============================================================

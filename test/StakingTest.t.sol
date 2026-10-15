@@ -185,7 +185,6 @@ contract StakingTest is BaseTest {
 
     /// @notice 正常路径：锁仓倍率生效——同本金同凭证，180天档(2.0x)奖励是0天档(1.0x)的2倍
     function test_LockMultiplier_Applies() public {
-        // 两人都在早期窗口内质押，都有凭证（×1.2 互相抵消）
         vm.prank(alice);
         staking.stake(1000 ether, 0); // 0天档 1.0x
         vm.prank(bob);

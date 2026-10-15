@@ -61,13 +61,12 @@ contract MultiStakeTest is BaseTest {
     /// @notice 正常路径：多用户多笔质押，totalStaked 正确
     function test_MultipleUsers_MultipleStakes() public {
         vm.prank(alice);
-        staking.stake(100 ether, 1); // 100*1.2 = 120
+        staking.stake(100 ether, 1); 
         vm.prank(alice);
-        staking.stake(200 ether, 3); // 200*2.0 = 400
+        staking.stake(200 ether, 3); 
         vm.prank(bob);
-        staking.stake(300 ether, 2); // 300*1.6 = 480
+        staking.stake(300 ether, 2); 
 
-        // totalStaked 按有效份额加权：120 + 400 + 480 = 1000
         assertEq(staking.totalStaked(), 1000 ether);
         assertEq(staking.getUserStakeIds(alice).length, 2);
         assertEq(staking.getUserStakeIds(bob).length, 1);
