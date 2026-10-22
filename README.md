@@ -49,7 +49,7 @@
 **数据流**：
 1. 项目方向合约注入周期奖励（RT）
 2. 用户质押 ST，合约创建独立质押笔，早期用户自动获得 ERC1155 凭证
-3. 时间流逝，奖励按 `份额占比 × rewardRate × 锁仓倍率 × 凭证加成` 累积
+3. 时间流逝，奖励按 `有效份额占比 × rewardRate` 累积（锁仓倍率已折算进份额），持有凭证再 ×1.2
 4. 用户随时 `getReward()` 领取奖励，或 `unstake(stakeId)` 取回指定笔的本金
 
 ---
@@ -93,15 +93,17 @@ staking/
 ```solidity
 struct UserStake {
     uint256 amount;         // 这笔质押本金
-    uint256 rewardDebt;     // 这笔上次结算基点
+    uint256 rewardDebt;     // 这笔上次结算时已赚的奖励数（= 有效份额 × 当时rpT / 1e18，不是 rpT 指数，见 §4.4）
     uint256 unlockTime;     // 这笔解锁时间戳
     uint256 lockMultiplier; // 这笔的锁仓倍率
 }
 
-uint256 public nextStakeId;                    // 全局自增 id
-mapping(uint256 => UserStake) public stakes;    // stakeId → 质押详情
-mapping(uint256 => address) public stakeOwner;  // stakeId → 持有人
+uint256 public nextStakeId = 1;                    // 全局自增质押 id（从 1 开始）
+mapping(uint256 => UserStake) public stakes;       // stakeId → 质押详情
+mapping(uint256 => address) public stakeOwner;     // stakeId → 持有人
 mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 stakeId
+
+uint256 public constant MAX_STAKES_PER_USER = 50;  // 单地址最大活跃质押笔数（防止 gas 随笔数无限增长，见 §4.2）
 ```
 
 **每个用户可同时持有多笔独立质押**，每笔独立选档位、独立解锁时间、独立结算。
@@ -112,7 +114,7 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 
 ### 4.1 周期预算制奖励
 
-**思路**：项目方每个周期划定固定奖励预算，均摊到每秒（`rewardRate = 预算 / 周期秒数`），用户按质押份额比例分得奖励；周期结束后管理员重新注入奖励开启下一周期。
+**思路**：项目方每个周期划定固定奖励预算，均摊到每秒并按凭证加成折算（`rewardRate = 预算 / 周期秒数 / boostMultiplier`），用户按**有效份额**（本金×锁仓倍率）比例分得奖励；周期结束后管理员重新注入奖励开启下一周期。
 
 **为什么用这个方案**：
 1. **成本可控**——每周期奖励总量固定，发完即止，有助于控制增发节奏
@@ -123,12 +125,13 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 
 | 变量 | 含义 |
 |------|------|
-| `rewardRate` | 每秒奖励量 = 周期预算 / 周期秒数 |
+| `rewardRate` | 每秒奖励量 = 周期预算 / 周期秒数 / boostMultiplier（已折算凭证加成） |
 | `periodFinish` | 当前周期结束时间戳 |
 | `lastUpdateTime` | 上次结算时间戳 |
 | `rewardPerTokenStored` | 累计每单位质押份额对应的奖励（放大 1e18） |
+| `totalStaked` | 有效质押总量 = Σ(每笔本金 × 锁仓倍率)，rpT 每秒增量 = rewardRate / totalStaked |
 
-**奖励会计模型**：采用 Synthetix StakingRewards 的 `rewardPerTokenStored + rewardDebt` O(1) 模型——全局 rpT 持续累加，每笔质押记录自己的 rewardDebt（上次结算基点），结算时做差即可算出这段时间的增量，无需遍历所有用户。
+**奖励会计模型**：采用 Synthetix StakingRewards 的 `rewardPerTokenStored + rewardDebt` O(1) 模型——全局 rpT 持续累加，每笔质押记录自己的 rewardDebt（上次结算时已赚的奖励数，见 §4.4），结算时做差即可算出这段时间的增量，无需遍历所有用户。
 
 ### 4.2 多笔独立质押与锁仓档位
 
@@ -156,20 +159,22 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 
 ### 4.3 ERC1155 早期参与凭证
 
-**思路**：项目早期（部署后前 7 天）新质押的用户自动获得 1 张 ERC1155 凭证（每个地址最多 1 张）；持有凭证的用户所有质押笔奖励**额外 ×1.2**。
+**思路**：项目早期（部署后前 7 天），新质押的 **EOA（普通钱包）用户**自动获得 1 张 ERC1155 凭证（每个地址最多 1 张）；持有凭证的用户所有质押笔奖励**额外 ×boostMultiplier（默认 1.2x）**。
 
 **"早期"的定义：部署后前 7 天（合约按时间戳自动判断）**
 - 部署时合约自动设定 `earlyMintDeadline = block.timestamp + 7 days`
-- 这 7 天内新质押的用户，没领过凭证的，`stake()` 时自动获得一张
+- 这 7 天内新质押的 EOA 用户，没领过凭证的，`stake()` 时自动获得一张
+- 合约钱包（多签、智能钱包等）不会自动获得凭证，原因见下方"已知限制"
 
 - **7 天到点后合约自动停止铸凭证**，无需人工操作
 - 管理员可用 `setEarlyMintDeadline` 应急调整截止时间
 - 已发出的凭证永久有效、可转让
 
-**已知限制：仅 EOA 自动铸造**
+**已知限制：仅 EOA 自动铸造（合约钱包需手动获取）**
 - 早期窗口内自动铸造凭证时，仅对 EOA（普通钱包）生效
-- 合约钱包（多签、智能钱包等）在早期窗口内质押**不会自动获得凭证**（因为合约可能不支持 ERC1155Receiver 接口，铸造会导致整个 stake revert）
-- 合约钱包用户可以正常质押，只是拿不到早期加成；7 天后所有用户都不再自动铸造，差异自动消失
+- 合约钱包在早期窗口内质押**不会自动获得凭证**（因为合约可能不支持 ERC1155Receiver 接口，铸造会导致整个 stake revert）
+- 合约钱包用户可以正常质押，只是拿不到早期加成；凭证可转让，合约钱包用户可通过购买/受让方式获得凭证
+- 7 天后停止的只是"自动铸造"这一行为；已发出的凭证永久有效，有凭证与无凭证的加成差异**持续存在**，不会自动消失
 
 **凭证设计：可转让**（权益凭证，非身份凭证）
 - 凭证本质是权益资产，早期参与者可转让给后来者，凭证本身具备流动性和市场价值
@@ -182,7 +187,7 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 有效份额 = 该笔本金 × 该笔锁仓倍率 / 1e18
 单笔奖励 = 有效份额 × 当前rpT / 1e18 - 该笔rewardDebt
 
-用户总奖励 = Σ(每笔奖励) × (有凭证 ? 1.2 : 1)
+用户总奖励 = Σ(每笔奖励) × (有凭证 ? boostMultiplier : 1)
 ```
 
 **说明：**
@@ -190,6 +195,7 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 - `totalStaked` 是**有效质押总量**（Σ每笔本金 × 锁仓倍率），不是名义本金
 - `rewardDebt` 存的是**上次结算时这笔质押已赚的钱数**（= 有效份额 × 当时rpT / 1e18），不是 rpT 的值
 - 所以计算时不能直接拿 rpT 减 rewardDebt，要先乘有效份额再减
+- `boostMultiplier` 默认 1.2x，管理员可调（上限 2x）；`rewardRate` 已除以它折算预算，保证全池总支出不超预算
 
 ### 4.5 奖励随时领取（锁仓只约束本金）
 
@@ -202,7 +208,7 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 
 **领取流程**：
 - `getReward()`：结算该用户所有质押笔的奖励并转入钱包，不检查锁仓
-- 领取后每笔的 `rewardDebt` 更新到当前 rpT，从新基点继续累计
+- 领取后每笔的 `rewardDebt` 更新为「当前 rpT × 该笔有效份额 / 1e18」（即这笔已累计的奖励数），从此继续累计新奖励
 - 奖励领取是独立操作，本金始终在合约中按原档位继续产生奖励
 
 ---
@@ -212,10 +218,11 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 | 参数 | 数值 | 设定逻辑 |
 |------|------|---------|
 | `rewardsDuration` | 30 天（2,592,000 秒） | 主流周期长度，兼顾演示与运营 |
-| 初始周期奖励 | 100,000 RT / 30 天 | 部署时调用 `notifyRewardAmount(100000 ether)` 注入；`rewardRate ≈ 3.858 × 10^16 wei/秒`（约 0.0386 RT/秒） |
-| 锁仓档位 | 0/30/90/180 天 | 倍率 1.0/1.2/1.6/2.0x，180 天封顶 |
-| `boostMultiplier` | 1.2x（1.2e18） | 凭证额外加成 |
+| 初始周期奖励 | 100,000 RT / 30 天 | 部署时调用 `notifyRewardAmount(100000 ether)` 注入；`rewardRate ≈ 3.215 × 10^16 wei/秒`（约 0.032 RT/秒，已除以 1.2 折算凭证加成） |
+| 锁仓档位 | 0/30/90/180 天 | 倍率 1.0/1.2/1.6/2.0x，默认 180 天封顶（管理员可调，倍率上限 5x） |
+| `boostMultiplier` | 默认 1.2x（1.2e18） | 凭证额外加成（管理员可调，上限 2x） |
 | `earlyMintDeadline` | 部署后 7 天 | 早期凭证窗口，到点自动关闭 |
+| 单地址最大活跃笔数 | 50 笔 | 防止 gas 随笔数无限增长（领取/取回需遍历所有笔），见 §4.2 |
 | 凭证 tokenId | 0 | ERC1155 单一种类凭证 |
 | 精度 | 1e18 | 所有倍率与奖励计算均放大 1e18 防精度丢失 |
 
@@ -232,7 +239,7 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 **系统做了什么**：
 - 将 1000 ST 从用户钱包转入质押合约
 - 创建一笔独立质押（编号 #1），30 天后解锁，享受 1.2x 奖励倍率
-- 如果此时在项目上线前 7 天的「早期窗口」内，系统自动向用户发放 1 张早期参与凭证（后续所有质押奖励额外 +20%）
+- 如果此时在项目上线前 7 天的「早期窗口」内，系统自动向用户发放 1 张早期参与凭证（后续所有质押奖励额外 +20%，即默认 1.2x；仅限 EOA，合约钱包不自动发放，见 §4.3）
 
 ### 第 2 步：追加质押（选 90 天档，创建第二笔）
 
@@ -248,7 +255,7 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 用户调用合约查询接口，可以看到：
 - 质押 #1：1000 ST，30 天档，剩余解锁时间 X 天
 - 质押 #2：500 ST，90 天档，剩余解锁时间 Y 天
-- 当前可领取奖励：Z RT（已自动乘以各笔的倍率和凭证加成）
+- 当前可领取奖励：Z RT（已自动结算：锁仓倍率已计入份额，持有凭证再 ×1.2）
 
 ### 第 4 步：领取奖励（不影响本金）
 
@@ -285,7 +292,7 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 
 | 函数 | 说明 |
 |------|------|
-| `notifyRewardAmount(uint256)` | 注入周期奖励，开启/续接奖励周期；内置超发检查 |
+| `notifyRewardAmount(uint256)` | 注入周期奖励，开启/续接奖励周期；rewardRate 已按凭证加成折算，全池总支出不超预算 |
 | `setRewardsDuration(uint256)` | 设置周期长度（默认 30 天） |
 | `setLockTier(uint256, uint256, uint256)` | 调整锁仓档位（下标、时长、倍率） |
 | `setBoostMultiplier(uint256)` | 调整凭证加成倍率（默认 1.2e18） |
@@ -302,7 +309,8 @@ mapping(address => uint256[]) public userStakeIds; // 用户 → 他所有的 st
 **描述**：如果 `notifyRewardAmount` 注入的奖励量超过合约实际持有的 RT 余额，或 `rewardRate` 设置过高，可能导致用户领取奖励时合约余额不足，转账失败。
 
 **已采取的措施**：
-- `notifyRewardAmount` 内置检查：`require(rewardRate <= balanceOf(this) / rewardsDuration, "rate too high")`
+- `rewardRate` 按凭证加成折算：`rewardRate = 预算 × 1e18 / (周期秒数 × boostMultiplier)`，全池总支出严格等于注入预算，倍率/凭证加成不会放大支出
+- `totalStaked` 按有效份额加权，锁仓倍率已计入份额，不存在"倍率事后相乘"造成的超发路径
 - 周期结束后奖励自动停止（`_lastTimeRewardApplicable` 卡在 `periodFinish`）
 - 项目方注入奖励时需先 `approve`，合约通过 `safeTransferFrom` 转入，有助于保证注入量与声明量一致
 
@@ -351,16 +359,26 @@ forge build
 
 ### 测试
 ```bash
-forge test -vvv
+# 全部测试（含主网 Fork 集成测试，需配置 MAINNET_RPC_URL，见下方说明）
+source .env && forge test -vvv
+
+# 仅单元测试（日常开发推荐，跳过 Fork 测试）
+forge test -vvv --no-match-contract ForkTest
 ```
+
+> 结构树中的 `test/fork/ForkTest.t.sol` 是主网 Fork 集成测试，运行时需要主网 RPC。
+> 请在 `.env` 中配置 `MAINNET_RPC_URL`（与 `SEPOLIA_RPC_URL` 同级），并在 `foundry.toml` 的 `[rpc_endpoints]` 中声明 `mainnet = "${MAINNET_RPC_URL}"`（项目已配置好）。
+> 未配置该变量时，请使用 `--no-match-contract ForkTest` 跳过 Fork 测试，否则 `forge test` 会在 Fork 测试处失败。
 
 ### 测试覆盖率
 
-运行 `forge coverage` 生成覆盖率报告：
+运行 `forge coverage` 生成覆盖率报告（Fork 测试需主网 RPC，覆盖率统计时已排除）：
 
 ```bash
-forge coverage
+forge coverage --no-match-contract ForkTest
 ```
+
+> 当前覆盖率表即为排除 `ForkTest` 后的统计口径；如需包含 Fork 测试，请先配置 `MAINNET_RPC_URL` 再运行 `forge coverage`。
 
 当前覆盖率（`forge coverage` 输出摘要）：
 
@@ -396,5 +414,5 @@ forge script script/Deploy.s.sol:DeployScript \
 | `BoostCredential` | `0x20b6C425b483251571d2dcC607Bf064Edb901Da2` |
 | `TimeBoostStaking` | `0xA9123f73Fa2068bDc5BB690bE35f0BF94C7b619F` |
 
-- 初始奖励：100,000 RT 已注入，`rewardRate ≈ 3.858 × 10^16 wei/秒`（约 0.0386 RT/秒）
+- 初始奖励：100,000 RT 已注入，`rewardRate ≈ 3.215 × 10^16 wei/秒`（约 0.032 RT/秒，已除以 1.2 折算凭证加成）
 - 源码验证：待后续完成
