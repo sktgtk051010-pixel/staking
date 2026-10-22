@@ -327,6 +327,16 @@ uint256 public constant MAX_STAKES_PER_USER = 50;  // 单地址最大活跃质�
 
 **残留风险**：`ReentrancyGuard` 只能降低同一合约的重入风险，无法完全防止跨合约重入（如恶意代币在回调中调用其他协议）。本项目使用标准 ERC20 代币作为 ST 和 RT，恶意回调风险较低。
 
+### 风险 3：空池期与预算沉淀（资金效率，不影响用户收益）
+
+**描述**：
+- 注入奖励后无人质押期间（`totalStaked == 0`），`_freshRewardPerToken()` 的除零保护直接返回 0，该段预算的奖励增量在 rpT 中不再累积，沉淀在合约中，本周期内不会发放
+- `rewardRate` 按凭证加成折算预留（`÷ boostMultiplier`），实际持证率不足 100% 时发放低于名义预算，剩余部分沉淀累积，且 `leftover` 按折算后速率计算，不回收历史沉淀
+
+**影响**：资金效率低于名义预算（0% 持证时约发放预算的 83%）；不影响任何用户收益——空池期本就无质押者，沉淀留作合约储备金，可供后续周期使用。
+
+**说明**：这是"预算制 + 防超发"设计的固有权衡：为保证全员持证（最坏情况）也不超发，必须以 1.2 折算预留；不回收沉淀是为了避免将历史缓冲加速放出导致后续超发。属设计取舍，非漏洞。
+
 ### 其他安全设计
 
 | 风险 | 已采取的措施 |
@@ -336,6 +346,12 @@ uint256 public constant MAX_STAKES_PER_USER = 50;  // 单地址最大活跃质�
 | 提前提款 | 每笔独立校验 `block.timestamp >= unlockTime` |
 | 凭证重复铸造 | `hasMinted` 限制每地址最多铸 1 张；加成按当前持有者 `balanceOf >= 1` 判断 |
 | 整数溢出 | Solidity 0.8.x 内置 overflow/underflow 检查 |
+
+### 管理员信任假设
+
+- 部署者（EOA）持有 `TimeBoostStaking` 全部管理员权限：`notifyRewardAmount`、`setRewardsDuration`、`setLockTier`、`setBoostMultiplier`、`setEarlyMintDeadline`，同时是 ST/RT 的 minter
+- **单点信任**：无多签、无时间锁。管理员密钥泄露 = 可注入/调整奖励参数、增发代币，直接影响系统运行
+- **建议**：生产部署前将 owner 转移至多签钱包（或治理合约）；本项目为演示/教学用途，保留 EOA 单点，使用者应知悉该信任假设
 
 ---
 
@@ -378,8 +394,6 @@ forge test -vvv --no-match-contract ForkTest
 forge coverage --no-match-contract ForkTest
 ```
 
-> 当前覆盖率表即为排除 `ForkTest` 后的统计口径；如需包含 Fork 测试，请先配置 `MAINNET_RPC_URL` 再运行 `forge coverage`。
-
 当前覆盖率（`forge coverage` 输出摘要）：
 
 | 文件 | 行覆盖率 | 语句覆盖率 | 分支覆盖率 | 函数覆盖率 |
@@ -392,7 +406,7 @@ forge coverage --no-match-contract ForkTest
 | `test/base/BaseTest.t.sol` | 100.00% (20/20) | 100.00% (18/18) | 100.00% (0/0) | 100.00% (2/2) |
 | **Total** | **86.83% (145/167)** | **83.14% (143/172)** | **93.94% (31/33)** | **95.83% (23/24)** |
 
-> `script/Deploy.s.sol` 为部署脚本，不参与业务逻辑测试，覆盖率 0% 属正常；核心业务合约 `TimeBoostStaking` 行覆盖率 100%，分支覆盖率 93.55%。
+> `script/Deploy.s.sol` 为部署脚本，不参与业务逻辑测试，覆盖率 0% 属正常
 
 ### 部署（Sepolia 示例）
 ```bash

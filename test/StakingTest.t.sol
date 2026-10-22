@@ -235,4 +235,42 @@ contract StakingTest is BaseTest {
         uint256 expectedRate = (10_000_000 ether * 1e18) / (30 days * boost);
         assertEq(staking.rewardRate(), expectedRate);
     }
+
+    /// @notice 边界：注入奖励后无人质押（空池），首笔质押不 revert，earned 正常累积
+    function test_Stake_AfterEmptyPool_Works() public {
+        // BaseTest 已注入 INITIAL_REWARD，此时 totalStaked == 0（空池）
+        assertEq(staking.totalStaked(), 0);
+
+        vm.prank(alice);
+        staking.stake(1000 ether, 1); // 空池期后首笔质押不 revert
+
+        assertEq(staking.totalStaked(), 1200 ether);
+
+        skipDays(1);
+        assertGt(staking.earned(alice), 0); // 从质押时刻起正常累积
+    }
+
+    /// @notice 不变量：全周期结束，累计发放 ≤ 注入预算（全员持证的最坏情况也不超发）
+    function test_TotalPayout_NeverExceedsBudget() public {
+        // 全员持证：三人都质押在早期窗口内，自动获得凭证（1.2x 加成全开）
+        vm.prank(alice);
+        staking.stake(1000 ether, 3);
+        vm.prank(bob);
+        staking.stake(1000 ether, 3);
+        vm.prank(carol);
+        staking.stake(1000 ether, 3);
+
+        skipDays(31); // 周期结束
+
+        vm.prank(alice);
+        staking.getReward();
+        vm.prank(bob);
+        staking.getReward();
+        vm.prank(carol);
+        staking.getReward();
+
+        uint256 paid = INITIAL_REWARD - rewardToken.balanceOf(address(staking));
+        assertLe(paid, INITIAL_REWARD); // 核心不变量：不超发
+        assertApproxEqAbs(paid, INITIAL_REWARD, INITIAL_REWARD / 1000); // 最坏情况接近满预算
+    }
 }

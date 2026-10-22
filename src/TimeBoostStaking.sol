@@ -26,7 +26,7 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
 
     struct UserStake {
         uint256 amount; // 这笔质押本金
-        uint256 rewardDebt; // 这笔上次结算基点
+        uint256 rewardDebt; // 这笔上次结算时已赚的奖励数（= 有效份额 × 当时rpT / 1e18）
         uint256 unlockTime; // 这笔解锁时间戳
         uint256 lockMultiplier; // 这笔的锁仓倍率
     }
