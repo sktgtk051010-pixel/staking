@@ -48,7 +48,7 @@
 
 **数据流**：
 1. 项目方向合约注入周期奖励（RT）
-2. 用户质押 ST，合约创建独立质押笔，早期用户自动获得 ERC1155 凭证
+2. 用户质押 ST，合约创建独立质押笔，早期用户（仅 EOA，见 §4.3）自动获得 ERC1155 凭证
 3. 时间流逝，奖励按 `有效份额占比 × rewardRate` 累积（锁仓倍率已折算进份额），持有凭证再 ×1.2
 4. 用户随时 `getReward()` 领取奖励，或 `unstake(stakeId)` 取回指定笔的本金
 
@@ -129,7 +129,7 @@ uint256 public constant MAX_STAKES_PER_USER = 50;  // 单地址最大活跃质�
 | `periodFinish` | 当前周期结束时间戳 |
 | `lastUpdateTime` | 上次结算时间戳 |
 | `rewardPerTokenStored` | 累计每单位质押份额对应的奖励（放大 1e18） |
-| `totalStaked` | 有效质押总量 = Σ(每笔本金 × 锁仓倍率)，rpT 每秒增量 = rewardRate / totalStaked |
+| `totalStaked` | 有效质押总量 = Σ(每笔本金 × 锁仓倍率)，rpT 每秒增量 = rewardRate × 1e18 / totalStaked（放大 1e18 存储） |
 
 **奖励会计模型**：采用 Synthetix StakingRewards 的 `rewardPerTokenStored + rewardDebt` O(1) 模型——全局 rpT 持续累加，每笔质押记录自己的 rewardDebt（上次结算时已赚的奖励数，见 §4.4），结算时做差即可算出这段时间的增量，无需遍历所有用户。
 
@@ -191,7 +191,7 @@ uint256 public constant MAX_STAKES_PER_USER = 50;  // 单地址最大活跃质�
 ```
 
 **说明：**
-- `rpT`（rewardPerTokenStored）是全局累计指数，每秒增量 = `rewardRate / totalStaked`
+- `rpT`（rewardPerTokenStored）是全局累计指数，每秒增量 = `rewardRate × 1e18 / totalStaked`（放大 1e18 存储）
 - `totalStaked` 是**有效质押总量**（Σ每笔本金 × 锁仓倍率），不是名义本金
 - `rewardDebt` 存的是**上次结算时这笔质押已赚的钱数**（= 有效份额 × 当时rpT / 1e18），不是 rpT 的值
 - 所以计算时不能直接拿 rpT 减 rewardDebt，要先乘有效份额再减
@@ -309,7 +309,7 @@ uint256 public constant MAX_STAKES_PER_USER = 50;  // 单地址最大活跃质�
 **描述**：如果 `notifyRewardAmount` 注入的奖励量超过合约实际持有的 RT 余额，或 `rewardRate` 设置过高，可能导致用户领取奖励时合约余额不足，转账失败。
 
 **已采取的措施**：
-- `rewardRate` 按凭证加成折算：`rewardRate = 预算 × 1e18 / (周期秒数 × boostMultiplier)`，全池总支出严格等于注入预算，倍率/凭证加成不会放大支出
+- `rewardRate` 按凭证加成折算：`rewardRate = 预算 × 1e18 / (周期秒数 × boostMultiplier)`，全池总支出严格不超过注入预算（全员持证时恰好等于预算），倍率/凭证加成不会放大支出
 - `totalStaked` 按有效份额加权，锁仓倍率已计入份额，不存在"倍率事后相乘"造成的超发路径
 - 周期结束后奖励自动停止（`_lastTimeRewardApplicable` 卡在 `periodFinish`）
 - 项目方注入奖励时需先 `approve`，合约通过 `safeTransferFrom` 转入，有助于保证注入量与声明量一致
