@@ -51,6 +51,31 @@ contract AdminTest is BaseTest {
         assertEq(staking.periodFinish(), block.timestamp + 30 days);
     }
 
+    /// @notice 正常路径：周期中途注入后，新 rate 折算正确、earned 按新 rate 精确累积
+    function test_NotifyRewardAmount_MidPeriod_EarnedAccrues() public {
+        vm.prank(alice);
+        staking.stake(1000 ether, 1); 
+
+        skipDays(15);
+        vm.prank(alice);
+        staking.getReward(); 
+
+        uint256 rateBefore = staking.rewardRate(); 
+        uint256 newReward = 50_000 ether;
+        rewardToken.mint(owner, newReward);
+        rewardToken.approve(address(staking), newReward);
+        staking.notifyRewardAmount(newReward);
+
+        uint256 boost = staking.boostMultiplier();
+        uint256 leftover = (30 days - 15 days) * rateBefore;
+        uint256 expectedRate = ((leftover + newReward) * 1e18) / (30 days * boost);
+        assertEq(staking.rewardRate(), expectedRate);
+
+        skip(1 days);
+        uint256 expectedIncrement = (1 days * expectedRate * boost) / 1e18;
+        assertApproxEqAbs(staking.earned(alice), expectedIncrement, 1);
+    }
+
     // ============================================================
     //                   setRewardsDuration
     // ============================================================
@@ -115,6 +140,18 @@ contract AdminTest is BaseTest {
         staking.setLockTier(99, 60 days, 1.5e18); // 不存在的档位
     }
 
+    /// @notice 边界：锁仓时长为 0 时 revert（0 天档由 tier 0 承担）
+    function test_SetLockTier_RevertWhen_ZeroDuration() public {
+        vm.expectRevert("duration too short");
+        staking.setLockTier(1, 0, 1.5e18);
+    }
+
+    /// @notice 边界：锁仓倍率低于 1.0x 时 revert（锁仓不该惩罚用户）
+    function test_SetLockTier_RevertWhen_MultiplierTooLow() public {
+        vm.expectRevert("multiplier too low");
+        staking.setLockTier(1, 60 days, 0.5e18); // 0.5x < 下限 1.0x
+    }
+
     // ============================================================
     //                   setBoostMultiplier
     // ============================================================
@@ -174,5 +211,45 @@ contract AdminTest is BaseTest {
         staking.stake(100 ether, 0);
 
         assertTrue(boostCredential.hasMinted(alice));
+    }
+
+    /// @notice 边界：截止时间设为过去时 revert
+    function test_SetEarlyMintDeadline_RevertWhen_PastDeadline() public {
+        vm.expectRevert("deadline in past");
+        staking.setEarlyMintDeadline(0); 
+    }
+
+    /// @notice 端到端：周期结束→调boost→重新注入→全员持证满周期，支出恰好 = 新预算
+    function test_FullCycle_BoostChange_Reinject_BudgetBalanced() public {
+        vm.prank(alice);
+        staking.stake(1000 ether, 3); 
+        vm.prank(bob);
+        staking.stake(1000 ether, 3);
+
+        skipDays(31);
+        vm.prank(alice);
+        staking.getReward(); 
+        vm.prank(bob);
+        staking.getReward();
+
+        staking.setBoostMultiplier(1.5e18); 
+
+        uint256 newReward = 100_000 ether;
+        rewardToken.mint(owner, newReward);
+        rewardToken.approve(address(staking), newReward);
+        staking.notifyRewardAmount(newReward); 
+        assertEq(staking.rewardRate(), (newReward * 1e18) / (30 days * 1.5e18));
+
+        skipDays(30);
+        uint256 aliceBefore = rewardToken.balanceOf(alice);
+        uint256 bobBefore = rewardToken.balanceOf(bob);
+        vm.prank(alice);
+        staking.getReward();
+        vm.prank(bob);
+        staking.getReward();
+        uint256 alicePaid = rewardToken.balanceOf(alice) - aliceBefore;
+        uint256 bobPaid = rewardToken.balanceOf(bob) - bobBefore;
+
+        assertApproxEqAbs(alicePaid + bobPaid, newReward, newReward / 1000);
     }
 }

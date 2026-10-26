@@ -207,6 +207,8 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
 
     function setLockTier(uint256 index, uint256 duration, uint256 multiplier) external onlyOwner {
         require(index < lockTiers.length, "bad tier");
+        require(duration > 0, "duration too short"); 
+        require(multiplier >= 1e18, "multiplier too low");
         require(multiplier <= 5e18, "multiplier too high"); // 最多 5 倍
         lockTiers[index] = LockTier({lockDuration: duration, rewardMultiplier: multiplier});
         emit LockTierUpdated(index, duration, multiplier);
@@ -220,6 +222,7 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
     }
 
     function setEarlyMintDeadline(uint256 newDeadline) external onlyOwner {
+        require(newDeadline > block.timestamp, "deadline in past");
         earlyMintDeadline = newDeadline;
         emit EarlyMintDeadlineUpdated(newDeadline);
     }
