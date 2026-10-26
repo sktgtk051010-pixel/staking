@@ -122,7 +122,11 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
 
     /// @notice 领取当前累计奖励（结算所有质押笔，不影响本金）
     function getReward() external nonReentrant {
-        _getReward(msg.sender);
+        uint256 reward = _accrueReward(msg.sender);
+        if (reward > 0) {
+            REWARD_TOKEN.safeTransfer(msg.sender, reward);
+            emit RewardPaid(msg.sender, reward);
+        }
     }
 
     /// @notice 解锁后取回指定质押笔的本金
@@ -133,15 +137,19 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
         require(s.amount > 0, "no stake");
         require(block.timestamp >= s.unlockTime, "still locked");
 
-        _getReward(msg.sender);
+        uint256 reward = _accrueReward(msg.sender); // Effects：只结算记账，不转账
 
         _removeStakeId(msg.sender, stakeId);
-
         uint256 amount = s.amount;
         totalStaked -= (amount * s.lockMultiplier) / 1e18;
         delete stakes[stakeId];
         delete stakeOwner[stakeId];
 
+        // Interactions：所有外部转账统一放最后（严格 CEI）
+        if (reward > 0) {
+            REWARD_TOKEN.safeTransfer(msg.sender, reward);
+            emit RewardPaid(msg.sender, reward);
+        }
         STAKE_TOKEN.safeTransfer(msg.sender, amount);
         emit Unstaked(msg.sender, stakeId, amount);
     }
@@ -180,6 +188,7 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
     /// @notice 注入新周期奖励（msg.sender 需先 approve rewardToken）
     /// @dev rewardRate 已按 boostMultiplier 折算，池子余额刚好覆盖最大支出
     function notifyRewardAmount(uint256 amount) external onlyOwner {
+        require(amount > 0, "zero amount");
         rewardPerTokenStored = rewardPerTokenStored + _freshRewardPerToken();
         lastUpdateTime = _lastTimeRewardApplicable();
 
@@ -216,6 +225,7 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
 
     function setBoostMultiplier(uint256 newMultiplier) external onlyOwner {
         require(block.timestamp > periodFinish, "period not finished"); // 周期内禁止调整
+        require(newMultiplier >= 1e18, "boost too low"); // 下限 1.0x，防设 0 导致注入除零
         require(newMultiplier <= 2e18, "boost too high"); // 最多 2 倍
         boostMultiplier = newMultiplier;
         emit BoostMultiplierUpdated(newMultiplier);
@@ -231,13 +241,13 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
     //                        内部函数
     // ============================================================
 
-    /// @notice 结算用户所有笔的奖励并打款（getReward / unstake 前调用）
-    function _getReward(address user) internal {
+    /// @notice 结算用户所有笔的奖励（只记账不转账），返回应发奖励数
+    /// @dev 供 getReward / unstake 调用；转账统一由调用方在状态更新完成后执行
+    function _accrueReward(address user) internal returns (uint256 totalReward) {
         rewardPerTokenStored = rewardPerTokenStored + _freshRewardPerToken();
         lastUpdateTime = _lastTimeRewardApplicable();
 
         uint256 currentRpt = rewardPerTokenStored;
-        uint256 totalReward;
 
         uint256[] storage ids = userStakeIds[user];
         for (uint256 i = 0; i < ids.length; i++) {
@@ -246,12 +256,8 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
             s.rewardDebt = ((s.amount * s.lockMultiplier / 1e18) * currentRpt) / 1e18;
         }
 
-        if (totalReward > 0) {
-            if (BOOST_CREDENTIAL.userHasBoost(user)) {
-                totalReward = (totalReward * boostMultiplier) / 1e18;
-            }
-            REWARD_TOKEN.safeTransfer(user, totalReward);
-            emit RewardPaid(user, totalReward);
+        if (totalReward > 0 && BOOST_CREDENTIAL.userHasBoost(user)) {
+            totalReward = (totalReward * boostMultiplier) / 1e18;
         }
     }
 

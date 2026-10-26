@@ -47,6 +47,26 @@ contract StakingTest is BaseTest {
         vm.stopPrank();
     }
 
+    /// @notice 正常路径：unstake 后释放名额，可继续开新笔
+    function test_Stake_SlotsReleasedAfterUnstake() public {
+        vm.startPrank(alice);
+
+        for (uint256 i = 0; i < 50; i++) {
+            staking.stake(1 ether, 0);
+        }
+
+        vm.expectRevert("too many stakes");
+        staking.stake(1 ether, 0);
+
+        staking.unstake(1); 
+
+        uint256 newId = staking.stake(1 ether, 0); 
+        assertEq(newId, 51);
+        assertEq(staking.getUserStakeIds(alice).length, 50);
+
+        vm.stopPrank();
+    }
+
     /// @notice 正常路径：质押后 totalStaked 正确累加（不同档位）
     function test_Stake_UpdatesTotalStaked() public {
         vm.prank(alice);

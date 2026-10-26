@@ -220,7 +220,7 @@ uint256 public constant MAX_STAKES_PER_USER = 50;  // 单地址最大活跃质�
 | `rewardsDuration` | 30 天（2,592,000 秒） | 主流周期长度 |
 | 初始周期奖励 | 100,000 RT / 30 天 | 部署时调用 `notifyRewardAmount(100000 ether)` 注入；`rewardRate ≈ 3.215 × 10^16 wei/秒`（约 0.032 RT/秒，已除以 1.2 折算凭证加成） |
 | 锁仓档位 | 0/30/90/180 天 | 倍率 1.0/1.2/1.6/2.0x，默认 180 天封顶（管理员可调：时长须 > 0，倍率限 1.0x~5x） |
-| `boostMultiplier` | 默认 1.2x（1.2e18） | 凭证额外加成（管理员可调，上限 2x；调整须在周期结束后，下次注入按新倍率折算） |
+| `boostMultiplier` | 默认 1.2x（1.2e18） | 凭证额外加成（管理员可调，限 1.0x~2x；调整须在周期结束后，下次注入按新倍率折算） |
 | `earlyMintDeadline` | 部署后 7 天 | 早期凭证窗口，到点自动关闭（管理员调整仅可设未来时间） |
 | 单地址最大活跃笔数 | 50 笔 | 防止 gas 随笔数无限增长（领取/取回需遍历所有笔），见 §4.2 |
 | 凭证 tokenId | 0 | ERC1155 单一种类凭证 |
@@ -292,10 +292,10 @@ uint256 public constant MAX_STAKES_PER_USER = 50;  // 单地址最大活跃质�
 
 | 函数 | 说明 |
 |------|------|
-| `notifyRewardAmount(uint256)` | 注入周期奖励，开启/续接奖励周期；rewardRate 已按凭证加成折算，全池总支出不超预算 |
+| `notifyRewardAmount(uint256)` | 注入周期奖励，开启/续接奖励周期（amount 须 > 0）；rewardRate 已按凭证加成折算，全池总支出不超预算 |
 | `setRewardsDuration(uint256)` | 设置周期长度（默认 30 天） |
 | `setLockTier(uint256, uint256, uint256)` | 调整锁仓档位（下标、时长、倍率；时长须 > 0，倍率限 1.0x~5x） |
-| `setBoostMultiplier(uint256)` | 调整凭证加成倍率（默认 1.2e18；仅可在周期结束后调整，防止中途调整打破预算平衡） |
+| `setBoostMultiplier(uint256)` | 调整凭证加成倍率（默认 1.2e18，限 1.0x~2x；仅可在周期结束后调整，防止中途调整打破预算平衡） |
 | `setEarlyMintDeadline(uint256)` | 调整早期凭证窗口截止时间（仅可设未来时间） |
 
 > 部署时需将 `BoostCredential` 的 owner 转给 `TimeBoostStaking`，否则 `stake()` 中自动铸凭证会因权限失败。
@@ -322,8 +322,7 @@ uint256 public constant MAX_STAKES_PER_USER = 50;  // 单地址最大活跃质�
 
 **已采取的措施**：
 - 所有用户侧函数均加 `nonReentrant` 修饰符（ReentrancyGuard）
-- 遵循"Checks-Effects-Interactions"模式：先更新状态（`rewardDebt`、`totalStaked`、`stakes`），再执行外部转账
-- `unstake()` 中先 `delete stakes[stakeId]` 再转账，降低重入时该笔被重复操作的风险
+- 遵循"Checks-Effects-Interactions"模式：`stake()`/`getReward()`/`unstake()` 中所有状态更新（`rewardDebt`、`totalStaked`、`stakes` 删除）均先于外部转账执行；奖励与本金转账统一在状态修改完成后沉底执行
 
 **残留风险**：`ReentrancyGuard` 只能降低同一合约的重入风险，无法完全防止跨合约重入（如恶意代币在回调中调用其他协议）。本项目使用标准 ERC20 代币作为 ST 和 RT，恶意回调风险较低。
 
@@ -402,9 +401,9 @@ forge coverage --no-match-contract ForkTest
 | `src/BoostCredential.sol` | 100.00% (8/8) | 100.00% (7/7) | 100.00% (2/2) | 100.00% (3/3) |
 | `src/RewardToken.sol` | 100.00% (3/3) | 100.00% (1/1) | N/A (0/0) | 100.00% (2/2) |
 | `src/StakeToken.sol` | 100.00% (3/3) | 100.00% (1/1) | N/A (0/0) | 100.00% (2/2) |
-| `src/TimeBoostStaking.sol` | 100.00% (118/118) | 98.36% (120/122) | 95.12% (39/41) | 100.00% (17/17) |
+| `src/TimeBoostStaking.sol` | 100.00% (122/122) | 98.46% (128/130) | 95.65% (44/46) | 100.00% (17/17) |
 | `test/base/BaseTest.t.sol` | 70.00% (14/20) | 66.67% (12/18) | N/A (0/0) | 100.00% (2/2) |
-| **Total** | **83.91% (146/174)** | **80.11% (141/176)** | **95.35% (41/43)** | **96.30% (26/27)** |
+| **Total** | **84.27% (150/178)** | **80.98% (149/184)** | **95.83% (46/48)** | **96.30% (26/27)** |
 
 > `script/Deploy.s.sol` 为部署脚本，不参与业务逻辑测试，覆盖率 0% 属正常
 

@@ -32,6 +32,12 @@ contract AdminTest is BaseTest {
         staking.notifyRewardAmount(100 ether);
     }
 
+    /// @notice 边界：注入量为 0 时 revert
+    function test_NotifyRewardAmount_RevertWhen_ZeroAmount() public {
+        vm.expectRevert("zero amount");
+        staking.notifyRewardAmount(0);
+    }
+
     /// @notice 正常路径：周期未结束时注入，剩余奖励并入新周期
     function test_NotifyRewardAmount_MidPeriod() public {
         skipDays(15); 
@@ -175,6 +181,13 @@ contract AdminTest is BaseTest {
         skipDays(31); 
         vm.expectRevert("boost too high");
         staking.setBoostMultiplier(3e18); 
+    }
+
+    /// @notice 边界：凭证加成低于下限（1.0x）时 revert
+    function test_SetBoostMultiplier_RevertWhen_TooLow() public {
+        skipDays(31); 
+        vm.expectRevert("boost too low");
+        staking.setBoostMultiplier(0.5e18); // 0.5x < 下限 1.0x
     }
 
     /// @notice 边界：周期未结束时调整凭证加成 revert
