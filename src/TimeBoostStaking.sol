@@ -213,6 +213,7 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
     }
 
     function setBoostMultiplier(uint256 newMultiplier) external onlyOwner {
+        require(block.timestamp > periodFinish, "period not finished"); // 周期内禁止调整
         require(newMultiplier <= 2e18, "boost too high"); // 最多 2 倍
         boostMultiplier = newMultiplier;
         emit BoostMultiplierUpdated(newMultiplier);

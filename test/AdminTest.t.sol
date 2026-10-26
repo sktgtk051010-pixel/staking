@@ -119,8 +119,9 @@ contract AdminTest is BaseTest {
     //                   setBoostMultiplier
     // ============================================================
 
-    /// @notice 正常路径：修改凭证加成倍率
+    /// @notice 正常路径：周期结束后修改凭证加成倍率
     function test_SetBoostMultiplier_Success() public {
+        skipDays(31); // 周期结束后才可调整
         staking.setBoostMultiplier(1.5e18);
         assertEq(staking.boostMultiplier(), 1.5e18);
     }
@@ -134,8 +135,15 @@ contract AdminTest is BaseTest {
 
     /// @notice 边界：凭证加成超过上限（2倍）时 revert
     function test_SetBoostMultiplier_RevertWhen_TooHigh() public {
+        skipDays(31); 
         vm.expectRevert("boost too high");
         staking.setBoostMultiplier(3e18); 
+    }
+
+    /// @notice 边界：周期未结束时调整凭证加成 revert
+    function test_SetBoostMultiplier_RevertWhen_PeriodNotFinished() public {
+        vm.expectRevert("period not finished");
+        staking.setBoostMultiplier(1.5e18); 
     }
 
     // ============================================================
