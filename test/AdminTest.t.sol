@@ -201,8 +201,8 @@ contract AdminTest is BaseTest {
         vm.prank(alice);
         uint256 stakeId = staking.stake(1000 ether, 3); // 180 天档，weight 2x
 
-        skipDays(31); 
-        staking.setBoostMultiplier(1.5e18); 
+        skipDays(31);
+        staking.setBoostMultiplier(1.5e18);
 
         uint256 before = rewardToken.balanceOf(alice);
         vm.prank(alice);
@@ -210,10 +210,10 @@ contract AdminTest is BaseTest {
         uint256 paid = rewardToken.balanceOf(alice) - before;
         assertApproxEqAbs(paid, 10_000_000 ether, 10_000_000 ether / 1000);
 
-        skip(150 days); 
+        skip(150 days);
         vm.prank(alice);
         staking.unstake(stakeId);
-        assertEq(stakeToken.balanceOf(alice), 1_000_000 ether); 
+        assertEq(stakeToken.balanceOf(alice), 1_000_000 ether);
     }
 
     /// @notice 两人各 50%，周期后调 1.5，alice 先领 → 双方都能领、总支出 = 预算
@@ -245,7 +245,7 @@ contract AdminTest is BaseTest {
         staking.stake(1000 ether, 3);
 
         skipDays(31);
-        staking.setBoostMultiplier(1e18); 
+        staking.setBoostMultiplier(1e18);
 
         uint256 before = rewardToken.balanceOf(alice);
         vm.prank(alice);

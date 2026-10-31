@@ -35,4 +35,5 @@ jobs:
         run: forge build --sizes
 
       - name: Run Forge tests
-        run: forge test -vvv
+        # ForkTest 依赖 MAINNET_RPC_URL secret；CI 不配置主网 RPC，故排除（本地有 .env 可全量跑）
+        run: forge test -vvv --no-match-contract ForkTest
