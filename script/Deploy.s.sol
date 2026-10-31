@@ -29,11 +29,8 @@ contract DeployScript is Script {
         BoostCredential boostCredential = new BoostCredential();
         console.log("BoostCredential:", address(boostCredential));
 
-        TimeBoostStaking staking = new TimeBoostStaking(
-            address(stakeToken),
-            address(rewardToken),
-            address(boostCredential)
-        );
+        TimeBoostStaking staking =
+            new TimeBoostStaking(address(stakeToken), address(rewardToken), address(boostCredential));
         console.log("TimeBoostStaking:", address(staking));
 
         boostCredential.transferOwnership(address(staking));

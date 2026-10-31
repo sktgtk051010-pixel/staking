@@ -13,7 +13,7 @@ contract StakingTest is BaseTest {
         vm.prank(alice);
         uint256 stakeId = staking.stake(100 ether, 2);
 
-        (uint256 amount, , uint256 unlockTime, uint256 lockMultiplier) = staking.stakes(stakeId);
+        (uint256 amount,, uint256 unlockTime, uint256 lockMultiplier) = staking.stakes(stakeId);
         assertEq(stakeId, 1);
         assertEq(amount, 100 ether);
         assertEq(unlockTime, block.timestamp + 90 days);
@@ -31,7 +31,7 @@ contract StakingTest is BaseTest {
     function test_Stake_RevertWhen_InvalidTier() public {
         vm.prank(alice);
         vm.expectRevert("bad tier");
-        staking.stake(100 ether, 4); 
+        staking.stake(100 ether, 4);
     }
 
     /// @notice 边界：超过最大活跃笔数（50笔）时 revert
@@ -58,9 +58,9 @@ contract StakingTest is BaseTest {
         vm.expectRevert("too many stakes");
         staking.stake(1 ether, 0);
 
-        staking.unstake(1); 
+        staking.unstake(1);
 
-        uint256 newId = staking.stake(1 ether, 0); 
+        uint256 newId = staking.stake(1 ether, 0);
         assertEq(newId, 51);
         assertEq(staking.getUserStakeIds(alice).length, 50);
 
@@ -102,7 +102,7 @@ contract StakingTest is BaseTest {
     /// @notice 边界：没有质押时领取奖励为 0，不 revert
     function test_GetReward_ZeroWhenNoStake() public {
         vm.prank(alice);
-        staking.getReward(); 
+        staking.getReward();
         assertEq(rewardToken.balanceOf(alice), 0);
     }
 
@@ -151,7 +151,7 @@ contract StakingTest is BaseTest {
         vm.prank(alice);
         uint256 stakeId = staking.stake(100 ether, 1); // 30天档
 
-        skipDays(29); 
+        skipDays(29);
 
         vm.prank(alice);
         vm.expectRevert("still locked");
@@ -161,7 +161,7 @@ contract StakingTest is BaseTest {
     /// @notice 边界：非质押者取回 revert
     function test_Unstake_RevertWhen_NotOwner() public {
         vm.prank(alice);
-        uint256 stakeId = staking.stake(100 ether, 1); 
+        uint256 stakeId = staking.stake(100 ether, 1);
 
         skipDays(1);
 
@@ -261,12 +261,12 @@ contract StakingTest is BaseTest {
         assertEq(staking.totalStaked(), 0);
 
         vm.prank(alice);
-        staking.stake(1000 ether, 1); 
+        staking.stake(1000 ether, 1);
 
         assertEq(staking.totalStaked(), 1200 ether);
 
         skipDays(1);
-        assertGt(staking.earned(alice), 0); 
+        assertGt(staking.earned(alice), 0);
     }
 
     /// @notice 不变量：全周期结束，累计发放 ≤ 注入预算（全员持证的最坏情况也不超发）
@@ -278,7 +278,7 @@ contract StakingTest is BaseTest {
         vm.prank(carol);
         staking.stake(1000 ether, 3);
 
-        skipDays(31); 
+        skipDays(31);
 
         vm.prank(alice);
         staking.getReward();
@@ -288,7 +288,7 @@ contract StakingTest is BaseTest {
         staking.getReward();
 
         uint256 paid = INITIAL_REWARD - rewardToken.balanceOf(address(staking));
-        assertLe(paid, INITIAL_REWARD); 
+        assertLe(paid, INITIAL_REWARD);
         assertApproxEqAbs(paid, INITIAL_REWARD, INITIAL_REWARD / 1000); // 最坏情况接近满预算
     }
 }

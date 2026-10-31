@@ -26,11 +26,7 @@ abstract contract BaseTest is Test {
         rewardToken = new RewardToken();
         boostCredential = new BoostCredential();
 
-        staking = new TimeBoostStaking(
-            address(stakeToken),
-            address(rewardToken),
-            address(boostCredential)
-        );
+        staking = new TimeBoostStaking(address(stakeToken), address(rewardToken), address(boostCredential));
 
         boostCredential.transferOwnership(address(staking));
 

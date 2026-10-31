@@ -10,7 +10,7 @@ contract AdminTest is BaseTest {
 
     /// @notice 正常路径：注入新周期奖励成功
     function test_NotifyRewardAmount_Success() public {
-        skipDays(31);//跳过当前周期
+        skipDays(31); //跳过当前周期
 
         uint256 newReward = 50_000 ether;
         rewardToken.mint(owner, newReward);
@@ -40,7 +40,7 @@ contract AdminTest is BaseTest {
 
     /// @notice 正常路径：周期未结束时注入，剩余奖励并入新周期
     function test_NotifyRewardAmount_MidPeriod() public {
-        skipDays(15); 
+        skipDays(15);
 
         uint256 newReward = 50_000 ether;
         rewardToken.mint(owner, newReward);
@@ -60,13 +60,13 @@ contract AdminTest is BaseTest {
     /// @notice 正常路径：周期中途注入后，新 rate 折算正确、earned 按新 rate 精确累积
     function test_NotifyRewardAmount_MidPeriod_EarnedAccrues() public {
         vm.prank(alice);
-        staking.stake(1000 ether, 1); 
+        staking.stake(1000 ether, 1);
 
         skipDays(15);
         vm.prank(alice);
-        staking.getReward(); 
+        staking.getReward();
 
-        uint256 rateBefore = staking.rewardRate(); 
+        uint256 rateBefore = staking.rewardRate();
         uint256 newReward = 50_000 ether;
         rewardToken.mint(owner, newReward);
         rewardToken.approve(address(staking), newReward);
@@ -88,7 +88,7 @@ contract AdminTest is BaseTest {
 
     /// @notice 正常路径：周期结束后设置周期长度
     function test_SetRewardsDuration_Success() public {
-        skipDays(31); 
+        skipDays(31);
         staking.setRewardsDuration(60 days);
         assertEq(staking.rewardsDuration(), 60 days);
     }
@@ -102,14 +102,14 @@ contract AdminTest is BaseTest {
 
     /// @notice 边界：周期长度为 0 时 revert（防止除零）
     function test_SetRewardsDuration_RevertWhen_Zero() public {
-        skipDays(31); 
+        skipDays(31);
         vm.expectRevert("duration too short");
         staking.setRewardsDuration(0);
     }
 
     /// @notice 边界：周期中间改长度 revert（必须等周期结束）
     function test_SetRewardsDuration_RevertWhen_PeriodNotFinished() public {
-        skipDays(15); 
+        skipDays(15);
         vm.expectRevert("period not finished");
         staking.setRewardsDuration(60 days);
     }
@@ -178,14 +178,14 @@ contract AdminTest is BaseTest {
 
     /// @notice 边界：凭证加成超过上限（2倍）时 revert
     function test_SetBoostMultiplier_RevertWhen_TooHigh() public {
-        skipDays(31); 
+        skipDays(31);
         vm.expectRevert("boost too high");
-        staking.setBoostMultiplier(3e18); 
+        staking.setBoostMultiplier(3e18);
     }
 
     /// @notice 边界：凭证加成低于下限（1.0x）时 revert
     function test_SetBoostMultiplier_RevertWhen_TooLow() public {
-        skipDays(31); 
+        skipDays(31);
         vm.expectRevert("boost too low");
         staking.setBoostMultiplier(0.5e18); // 0.5x < 下限 1.0x
     }
@@ -193,7 +193,65 @@ contract AdminTest is BaseTest {
     /// @notice 边界：周期未结束时调整凭证加成 revert
     function test_SetBoostMultiplier_RevertWhen_PeriodNotFinished() public {
         vm.expectRevert("period not finished");
+        staking.setBoostMultiplier(1.5e18);
+    }
+
+    /// @notice 单人 100% 份额，周期后调 1.5 且未领取 → 不超发、不锁死本金
+    function test_BoostChange_SingleUser_NoOverpay_NoLock() public {
+        vm.prank(alice);
+        uint256 stakeId = staking.stake(1000 ether, 3); // 180 天档，weight 2x
+
+        skipDays(31); 
         staking.setBoostMultiplier(1.5e18); 
+
+        uint256 before = rewardToken.balanceOf(alice);
+        vm.prank(alice);
+        staking.getReward();
+        uint256 paid = rewardToken.balanceOf(alice) - before;
+        assertApproxEqAbs(paid, 10_000_000 ether, 10_000_000 ether / 1000);
+
+        skip(150 days); 
+        vm.prank(alice);
+        staking.unstake(stakeId);
+        assertEq(stakeToken.balanceOf(alice), 1_000_000 ether); 
+    }
+
+    /// @notice 两人各 50%，周期后调 1.5，alice 先领 → 双方都能领、总支出 = 预算
+    function test_BoostChange_TwoUsers_NoOverpay_NoLock() public {
+        vm.prank(alice);
+        staking.stake(1000 ether, 3);
+        vm.prank(bob);
+        staking.stake(1000 ether, 3);
+
+        skipDays(31);
+        staking.setBoostMultiplier(1.5e18);
+
+        uint256 aliceBefore = rewardToken.balanceOf(alice);
+        vm.prank(alice);
+        staking.getReward();
+        uint256 alicePaid = rewardToken.balanceOf(alice) - aliceBefore;
+        assertApproxEqAbs(alicePaid, 5_000_000 ether, 5_000_000 ether / 1000);
+
+        uint256 bobBefore = rewardToken.balanceOf(bob);
+        vm.prank(bob);
+        staking.getReward();
+        uint256 bobPaid = rewardToken.balanceOf(bob) - bobBefore;
+        assertApproxEqAbs(bobPaid, 5_000_000 ether, 5_000_000 ether / 1000);
+    }
+
+    /// @notice 周期后调低到 1.0 → 未领取奖励仍按旧段 ×1.2 拿满，无无声损失
+    function test_BoostChange_Downgrade_NoSilentLoss() public {
+        vm.prank(alice);
+        staking.stake(1000 ether, 3);
+
+        skipDays(31);
+        staking.setBoostMultiplier(1e18); 
+
+        uint256 before = rewardToken.balanceOf(alice);
+        vm.prank(alice);
+        staking.getReward();
+        uint256 paid = rewardToken.balanceOf(alice) - before;
+        assertApproxEqAbs(paid, 10_000_000 ether, 10_000_000 ether / 1000);
     }
 
     // ============================================================
@@ -229,28 +287,28 @@ contract AdminTest is BaseTest {
     /// @notice 边界：截止时间设为过去时 revert
     function test_SetEarlyMintDeadline_RevertWhen_PastDeadline() public {
         vm.expectRevert("deadline in past");
-        staking.setEarlyMintDeadline(0); 
+        staking.setEarlyMintDeadline(0);
     }
 
     /// @notice 端到端：周期结束→调boost→重新注入→全员持证满周期，支出恰好 = 新预算
     function test_FullCycle_BoostChange_Reinject_BudgetBalanced() public {
         vm.prank(alice);
-        staking.stake(1000 ether, 3); 
+        staking.stake(1000 ether, 3);
         vm.prank(bob);
         staking.stake(1000 ether, 3);
 
         skipDays(31);
         vm.prank(alice);
-        staking.getReward(); 
+        staking.getReward();
         vm.prank(bob);
         staking.getReward();
 
-        staking.setBoostMultiplier(1.5e18); 
+        staking.setBoostMultiplier(1.5e18);
 
         uint256 newReward = 100_000 ether;
         rewardToken.mint(owner, newReward);
         rewardToken.approve(address(staking), newReward);
-        staking.notifyRewardAmount(newReward); 
+        staking.notifyRewardAmount(newReward);
         assertEq(staking.rewardRate(), (newReward * 1e18) / (30 days * 1.5e18));
 
         skipDays(30);

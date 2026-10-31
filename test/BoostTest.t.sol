@@ -91,5 +91,4 @@ contract BoostTest is BaseTest {
         assertEq(boostCredential.balanceOf(alice, 0), 1);
         assertTrue(boostCredential.hasMinted(alice));
     }
-
 }

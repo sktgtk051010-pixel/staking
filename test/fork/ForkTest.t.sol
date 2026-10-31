@@ -30,11 +30,7 @@ contract ForkTest is Test {
         rewardToken = new RewardToken();
         boostCredential = new BoostCredential();
 
-        staking = new TimeBoostStaking(
-            address(stakeToken),
-            address(rewardToken),
-            address(boostCredential)
-        );
+        staking = new TimeBoostStaking(address(stakeToken), address(rewardToken), address(boostCredential));
 
         boostCredential.transferOwnership(address(staking));
 
@@ -87,7 +83,7 @@ contract ForkTest is Test {
         staking.stake(5000 ether, 0);
 
         vm.prank(alice);
-        uint256 stakeId = staking.stake(100 ether, 1); 
+        uint256 stakeId = staking.stake(100 ether, 1);
 
         skip(30 days);
 
@@ -110,9 +106,9 @@ contract ForkTest is Test {
     /// @notice Fork 环境下多笔独立质押
     function test_Fork_MultipleStakes() public {
         vm.prank(alice);
-        uint256 id1 = staking.stake(100 ether, 1); 
+        uint256 id1 = staking.stake(100 ether, 1);
         vm.prank(alice);
-        uint256 id2 = staking.stake(200 ether, 3); 
+        uint256 id2 = staking.stake(200 ether, 3);
 
         assertEq(id1, 1);
         assertEq(id2, 2);
@@ -126,7 +122,7 @@ contract ForkTest is Test {
         vm.prank(alice);
         staking.stake(1000 ether, 1);
 
-        skip(30 days); 
+        skip(30 days);
         uint256 earned1 = staking.earned(alice);
 
         skip(10 days);
@@ -140,7 +136,7 @@ contract ForkTest is Test {
         vm.prank(alice);
         uint256 stakeId = staking.stake(100 ether, 1); // 30天档
 
-        skip(1 days); 
+        skip(1 days);
 
         vm.prank(alice);
         vm.expectRevert("still locked");
