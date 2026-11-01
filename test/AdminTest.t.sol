@@ -59,7 +59,7 @@ contract AdminTest is BaseTest {
 
     /// @notice 正常路径：周期中途注入后，新 rate 折算正确、earned 按新 rate 精确累积
     function test_NotifyRewardAmount_MidPeriod_EarnedAccrues() public {
-        vm.prank(alice);
+        vm.prank(alice, alice);
         staking.stake(1000 ether, 1);
 
         skipDays(15);
@@ -198,7 +198,7 @@ contract AdminTest is BaseTest {
 
     /// @notice 单人 100% 份额，周期后调 1.5 且未领取 → 不超发、不锁死本金
     function test_BoostChange_SingleUser_NoOverpay_NoLock() public {
-        vm.prank(alice);
+        vm.prank(alice, alice);
         uint256 stakeId = staking.stake(1000 ether, 3); // 180 天档，weight 2x
 
         skipDays(31);
@@ -218,9 +218,9 @@ contract AdminTest is BaseTest {
 
     /// @notice 两人各 50%，周期后调 1.5，alice 先领 → 双方都能领、总支出 = 预算
     function test_BoostChange_TwoUsers_NoOverpay_NoLock() public {
-        vm.prank(alice);
+        vm.prank(alice, alice);
         staking.stake(1000 ether, 3);
-        vm.prank(bob);
+        vm.prank(bob, bob);
         staking.stake(1000 ether, 3);
 
         skipDays(31);
@@ -241,7 +241,7 @@ contract AdminTest is BaseTest {
 
     /// @notice 周期后调低到 1.0 → 未领取奖励仍按旧段 ×1.2 拿满，无无声损失
     function test_BoostChange_Downgrade_NoSilentLoss() public {
-        vm.prank(alice);
+        vm.prank(alice, alice);
         staking.stake(1000 ether, 3);
 
         skipDays(31);
@@ -278,8 +278,8 @@ contract AdminTest is BaseTest {
 
         staking.setEarlyMintDeadline(block.timestamp + 7 days);
 
-        vm.prank(alice);
-        staking.stake(100 ether, 0);
+        vm.prank(alice, alice);
+        staking.stake(1000 ether, 0); // 达标门槛
 
         assertTrue(boostCredential.hasMinted(alice));
     }
@@ -292,9 +292,9 @@ contract AdminTest is BaseTest {
 
     /// @notice 端到端：周期结束→调boost→重新注入→全员持证满周期，支出恰好 = 新预算
     function test_FullCycle_BoostChange_Reinject_BudgetBalanced() public {
-        vm.prank(alice);
+        vm.prank(alice, alice);
         staking.stake(1000 ether, 3);
-        vm.prank(bob);
+        vm.prank(bob, bob);
         staking.stake(1000 ether, 3);
 
         skipDays(31);

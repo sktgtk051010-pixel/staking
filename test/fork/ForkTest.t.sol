@@ -96,8 +96,8 @@ contract ForkTest is Test {
 
     /// @notice Fork 环境下早期凭证自动铸造
     function test_Fork_EarlyCredential() public {
-        vm.prank(alice);
-        staking.stake(100 ether, 2); // 90天档
+        vm.prank(alice, alice);
+        staking.stake(1000 ether, 2); // 90天档，达标门槛
 
         assertTrue(boostCredential.userHasBoost(alice));
         assertEq(boostCredential.balanceOf(alice, 0), 1);

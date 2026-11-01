@@ -194,7 +194,7 @@ contract StakingTest is BaseTest {
 
     /// @notice 正常路径：earned 返回正确的可领取奖励（含锁仓倍率和凭证加成）
     function test_Earned_ReturnsCorrectAmount() public {
-        vm.prank(alice);
+        vm.prank(alice, alice);
         staking.stake(1000 ether, 1); // 30天档 1.2x
 
         skipDays(1);
@@ -271,11 +271,11 @@ contract StakingTest is BaseTest {
 
     /// @notice 不变量：全周期结束，累计发放 ≤ 注入预算（全员持证的最坏情况也不超发）
     function test_TotalPayout_NeverExceedsBudget() public {
-        vm.prank(alice);
+        vm.prank(alice, alice);
         staking.stake(1000 ether, 3);
-        vm.prank(bob);
+        vm.prank(bob, bob);
         staking.stake(1000 ether, 3);
-        vm.prank(carol);
+        vm.prank(carol, carol);
         staking.stake(1000 ether, 3);
 
         skipDays(31);
@@ -289,6 +289,6 @@ contract StakingTest is BaseTest {
 
         uint256 paid = INITIAL_REWARD - rewardToken.balanceOf(address(staking));
         assertLe(paid, INITIAL_REWARD);
-        assertApproxEqAbs(paid, INITIAL_REWARD, INITIAL_REWARD / 1000); // 最坏情况接近满预算
+        assertApproxEqAbs(paid, INITIAL_REWARD, INITIAL_REWARD / 1000);
     }
 }

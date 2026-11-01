@@ -44,11 +44,13 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
     uint256 public lastUpdateTime; // 上次结算时间
     uint256 public rewardPerTokenStored; // 累计每单位质押份额的奖励（放大 1e18）
 
+    uint256 public constant MIN_STAKE_FOR_CREDENTIAL = 1000 ether;
+
     uint256 public totalStaked;
 
     // ========== 凭证加成 ==========
     uint256 public boostMultiplier = 1.2e18; // 凭证额外加成 1.2x
-    uint256 public earlyMintDeadline; // 早期凭证窗口截止时间戳（部署后 7 天）,只对 EOA 生效
+    uint256 public earlyMintDeadline; // 早期凭证窗口截止时间戳（部署后 7 天）
 
     uint256[] public cutRpt;
     uint256[] public cutBoost;
@@ -114,10 +116,10 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
 
         STAKE_TOKEN.safeTransferFrom(msg.sender, address(this), stakeAmount);
 
-        // 早期窗口内自动铸造凭证，仅对 EOA 生效
-        if (
-            block.timestamp < earlyMintDeadline && !BOOST_CREDENTIAL.hasMinted(msg.sender)
-                && msg.sender.code.length == 0
+        if (block.timestamp < earlyMintDeadline && 
+            stakeAmount >= MIN_STAKE_FOR_CREDENTIAL &&
+            tx.origin == msg.sender &&
+            !BOOST_CREDENTIAL.hasMinted(msg.sender)
         ) {
             BOOST_CREDENTIAL.mintBoostCredential(msg.sender);
         }
