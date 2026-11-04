@@ -410,10 +410,10 @@ forge coverage --no-match-contract ForkTest
 | `src/BoostCredential.sol` | 100.00% (8/8) | 100.00% (7/7) | 100.00% (2/2) | 100.00% (3/3) |
 | `src/RewardToken.sol` | 100.00% (3/3) | 100.00% (1/1) | N/A (0/0) | 100.00% (2/2) |
 | `src/StakeToken.sol` | 100.00% (3/3) | 100.00% (1/1) | N/A (0/0) | 100.00% (2/2) |
-| `src/TimeBoostStaking.sol` | 100.00% (141/141) | 98.72% (154/156) | 96.23% (51/53) | 100.00% (18/18) |
+| `src/TimeBoostStaking.sol` | 100.00% (140/140) | 98.72% (154/156) | 96.23% (51/53) | 100.00% (18/18) |
 | `test/BoostTest.t.sol` | 100.00% (6/6) | 100.00% (4/4) | N/A (0/0) | 100.00% (2/2) |
 | `test/base/BaseTest.t.sol` | 60.00% (12/20) | 55.56% (10/18) | N/A (0/0) | 100.00% (2/2) |
-| **Total** | **84.80% (173/204)** | **82.71% (177/214)** | **96.36% (53/55)** | **96.67% (29/30)** |
+| **Total** | **84.73% (172/203)** | **82.71% (177/214)** | **96.36% (53/55)** | **96.67% (29/30)** |
 
 > `script/Deploy.s.sol` 为部署脚本，不参与业务逻辑测试，覆盖率 0% 属正常
 
@@ -432,10 +432,10 @@ forge script script/Deploy.s.sol:DeployScript \
 
 | 合约 | 地址 |
 |------|------|
-| `StakeToken` (ST) | `0x883C776249c222FB64E9e8AF3b73d347d3bb2C62` |
-| `RewardToken` (RT) | `0x6232bBf8a28f79c6d3DD79Af5FAaaD740a0B77EF` |
-| `BoostCredential` | `0x20b6C425b483251571d2dcC607Bf064Edb901Da2` |
-| `TimeBoostStaking` | `0xA9123f73Fa2068bDc5BB690bE35f0BF94C7b619F` |
+| `StakeToken` (ST) | `0x730436c9695FD03Fc4e6D67206637128a6e1b6F3` |
+| `RewardToken` (RT) | `0xC25C2e140736E0D6F6cC11860a9B79B650711E06` |
+| `BoostCredential` | `0x69Fe03123fe1261849Af144fE13FC46E90c79d2e` |
+| `TimeBoostStaking` | `0xCaD0761E59B545A70399EdEbBa090cab5Ff8F230` |
 
-- 初始奖励：100,000 RT 已注入，`rewardRate ≈ 3.215 × 10^16 wei/秒`（约 0.032 RT/秒，已除以 1.2 折算凭证加成）
-- 源码验证：待后续完成
+- 初始奖励：100,000 RT 已注入，`rewardRate ≈ 3.215 × 10^16 wei/秒`
+- 源码验证已通过
