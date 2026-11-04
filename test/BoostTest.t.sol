@@ -147,4 +147,67 @@ contract BoostTest is BaseTest {
         assertFalse(boostCredential.hasMinted(alice));
         assertFalse(boostCredential.userHasBoost(alice));
     }
+
+    /// @notice 周期结束后反复调倍率：同切点覆盖末页，段表不增长
+    function test_SetBoostMultiplier_RepeatedAfterEnd_CoversLastPage() public {
+        vm.prank(alice, alice);
+        staking.stake(1000 ether, 1); 
+
+        skipDays(31);
+        assertEq(staking.boostPageCount(), 1);
+
+        staking.setBoostMultiplier(1.5e18); 
+        assertEq(staking.boostPageCount(), 2);
+        assertEq(staking.cutBoost(1), 1.5e18);
+
+        uint256 cutPoint = staking.cutRpt(1); 
+
+        staking.setBoostMultiplier(1.0e18);
+        staking.setBoostMultiplier(1.8e18);
+        staking.setBoostMultiplier(1.2e18); 
+
+        assertEq(staking.boostPageCount(), 2); 
+        assertEq(staking.cutRpt(1), cutPoint); 
+        assertEq(staking.cutBoost(1), 1.2e18); 
+    }
+
+    /// @notice 周期结束后调整/覆盖倍率不影响已产生的历史奖励
+    function test_SetBoostMultiplier_CoverKeepsHistoricalRewards() public {
+        vm.prank(alice, alice);
+        staking.stake(1000 ether, 1); 
+
+        skipDays(31);
+        uint256 earnedBefore = staking.earned(alice);
+        assertApproxEqRel(earnedBefore, 10_000_000 ether, 1e6); 
+
+        staking.setBoostMultiplier(1.5e18); 
+        assertEq(staking.earned(alice), earnedBefore);
+
+        staking.setBoostMultiplier(1.0e18); 
+        assertEq(staking.earned(alice), earnedBefore);
+        assertEq(staking.boostPageCount(), 2);
+    }
+
+    /// @notice 注入新周期后 rpT 前进 → 追加新页，跨周期按各页倍率分段结算
+    function test_SetBoostMultiplier_NewPeriod_PushesNewPage() public {
+        vm.prank(alice, alice);
+        staking.stake(1000 ether, 1);
+
+        skipDays(31);
+        staking.setBoostMultiplier(1.5e18);
+        staking.setBoostMultiplier(1.0e18); 
+        assertEq(staking.boostPageCount(), 2);
+
+        rewardToken.mint(owner, 5_000_000 ether); 
+        rewardToken.approve(address(staking), 5_000_000 ether); 
+        staking.notifyRewardAmount(5_000_000 ether);
+        skipDays(31); 
+        staking.setBoostMultiplier(2e18); 
+
+        assertEq(staking.boostPageCount(), 3);
+        assertEq(staking.cutBoost(0), 1.2e18);
+        assertEq(staking.cutBoost(1), 1e18);
+        assertEq(staking.cutBoost(2), 2e18); 
+        assertApproxEqRel(staking.earned(alice), 15_000_000 ether, 1e6); 
+    }
 }

@@ -175,6 +175,7 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
         return userStakeIds[account];
     }
 
+    /// @notice 汇总用户所有质押笔的累计奖励（只读不结算）
     function _earned(address account) internal view returns (uint256 totalReward) {
         uint256 currentRpt = rewardPerTokenStored + _freshRewardPerToken();
         bool boosted = BOOST_CREDENTIAL.userHasBoost(account);
@@ -211,6 +212,8 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
         emit RewardNotified(amount, periodFinish);
     }
 
+    /// @notice 设置奖励周期长度
+    /// @param newDuration 新周期秒数（须 > 0）
     function setRewardsDuration(uint256 newDuration) external onlyOwner {
         require(newDuration > 0, "duration too short");
         require(block.timestamp > periodFinish, "period not finished");
@@ -218,6 +221,10 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
         emit RewardsDurationUpdated(newDuration);
     }
 
+    /// @notice 调整锁仓档位的时长与奖励倍率
+    /// @param index 档位下标（0=不锁 1=30天 2=90天 3=180天）
+    /// @param duration 新锁仓秒数
+    /// @param multiplier 新奖励倍率（1e18 = 1.0x，限 1.0x~5x）
     function setLockTier(uint256 index, uint256 duration, uint256 multiplier) external onlyOwner {
         require(index < lockTiers.length, "bad tier");
         require(duration > 0, "duration too short");
@@ -227,20 +234,34 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
         emit LockTierUpdated(index, duration, multiplier);
     }
 
+    /// @notice 调整凭证加成倍率（仅周期结束后；同切点覆盖末页防段表膨胀）
+    /// @param newMultiplier 新倍率（1e18 = 1.0x，限 1.0x~2x）
     function setBoostMultiplier(uint256 newMultiplier) external onlyOwner {
         require(block.timestamp > periodFinish, "period not finished"); // 周期内禁止调整
-        require(newMultiplier >= 1e18, "boost too low"); // 下限 1.0x，防设 0 导致注入除零
-        require(newMultiplier <= 2e18, "boost too high"); // 最多 2 倍
+        require(newMultiplier >= 1e18, "boost too low"); 
+        require(newMultiplier <= 2e18, "boost too high"); 
 
         rewardPerTokenStored = rewardPerTokenStored + _freshRewardPerToken();
         lastUpdateTime = _lastTimeRewardApplicable();
-        cutRpt.push(rewardPerTokenStored);
-        cutBoost.push(newMultiplier);
+
+        if (cutRpt.length > 0 && cutRpt[cutRpt.length - 1] == rewardPerTokenStored) {
+            cutBoost[cutBoost.length - 1] = newMultiplier;
+        } else {
+            cutRpt.push(rewardPerTokenStored);
+            cutBoost.push(newMultiplier);
+        }
 
         boostMultiplier = newMultiplier;
         emit BoostMultiplierUpdated(newMultiplier);
     }
 
+    /// @notice cutBoost 页数（测试用）
+    function boostPageCount() external view returns (uint256) {
+        return cutBoost.length;
+    }
+
+    /// @notice 调整早期凭证窗口截止时间
+    /// @param newDeadline 新截止时间戳（须晚于当前）
     function setEarlyMintDeadline(uint256 newDeadline) external onlyOwner {
         require(newDeadline > block.timestamp, "deadline in past");
         earlyMintDeadline = newDeadline;
@@ -312,10 +333,12 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
         }
     }
 
+    /// @notice 实际计奖时间：周期内取当前时间，周期结束后卡在 periodFinish
     function _lastTimeRewardApplicable() internal view returns (uint256) {
         return block.timestamp < periodFinish ? block.timestamp : periodFinish;
     }
 
+    /// @notice 自上次结算以来新增的每单位有效份额奖励（rpT 增量）
     function _freshRewardPerToken() internal view returns (uint256) {
         if (totalStaked == 0) return 0;
         return ((_lastTimeRewardApplicable() - lastUpdateTime) * rewardRate * 1e18) / totalStaked;
