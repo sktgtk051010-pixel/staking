@@ -24,6 +24,9 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          # 锁定与本地一致的版本，避免新版 forge fmt / lint 规则漂移导致 CI 失败
+          version: "v1.7.1"
 
       - name: Show Forge version
         run: forge --version

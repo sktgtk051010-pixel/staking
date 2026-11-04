@@ -61,7 +61,7 @@ contract BoostTest is BaseTest {
     /// @notice 正常路径：凭证可转让
     function test_CredentialTransferable() public {
         vm.prank(alice, alice);
-        staking.stake(1000 ether, 1); 
+        staking.stake(1000 ether, 1);
 
         assertTrue(boostCredential.userHasBoost(alice));
         assertFalse(boostCredential.userHasBoost(bob));
@@ -113,7 +113,7 @@ contract BoostTest is BaseTest {
     /// @notice 早期窗口内：普通合约钱包（非构造期）质押不自动获得凭证
     function test_ContractWallet_Stake_MintsCredential() public {
         ContractWalletStaker wallet = new ContractWalletStaker();
-        stakeToken.mint(address(wallet), 1000 ether); 
+        stakeToken.mint(address(wallet), 1000 ether);
 
         wallet.stakeOn(staking, stakeToken, 1000 ether);
 
@@ -130,7 +130,7 @@ contract BoostTest is BaseTest {
         );
         address predicted = vm.computeCreate2Address(salt, codeHash, address(this));
 
-        stakeToken.mint(predicted, 1000 ether); 
+        stakeToken.mint(predicted, 1000 ether);
         ConstructorStaker wallet = new ConstructorStaker{salt: salt}(staking, stakeToken, 1000 ether);
 
         assertEq(address(wallet), predicted);
@@ -151,39 +151,39 @@ contract BoostTest is BaseTest {
     /// @notice 周期结束后反复调倍率：同切点覆盖末页，段表不增长
     function test_SetBoostMultiplier_RepeatedAfterEnd_CoversLastPage() public {
         vm.prank(alice, alice);
-        staking.stake(1000 ether, 1); 
+        staking.stake(1000 ether, 1);
 
         skipDays(31);
         assertEq(staking.boostPageCount(), 1);
 
-        staking.setBoostMultiplier(1.5e18); 
+        staking.setBoostMultiplier(1.5e18);
         assertEq(staking.boostPageCount(), 2);
         assertEq(staking.cutBoost(1), 1.5e18);
 
-        uint256 cutPoint = staking.cutRpt(1); 
+        uint256 cutPoint = staking.cutRpt(1);
 
         staking.setBoostMultiplier(1.0e18);
         staking.setBoostMultiplier(1.8e18);
-        staking.setBoostMultiplier(1.2e18); 
+        staking.setBoostMultiplier(1.2e18);
 
-        assertEq(staking.boostPageCount(), 2); 
-        assertEq(staking.cutRpt(1), cutPoint); 
-        assertEq(staking.cutBoost(1), 1.2e18); 
+        assertEq(staking.boostPageCount(), 2);
+        assertEq(staking.cutRpt(1), cutPoint);
+        assertEq(staking.cutBoost(1), 1.2e18);
     }
 
     /// @notice 周期结束后调整/覆盖倍率不影响已产生的历史奖励
     function test_SetBoostMultiplier_CoverKeepsHistoricalRewards() public {
         vm.prank(alice, alice);
-        staking.stake(1000 ether, 1); 
+        staking.stake(1000 ether, 1);
 
         skipDays(31);
         uint256 earnedBefore = staking.earned(alice);
-        assertApproxEqRel(earnedBefore, 10_000_000 ether, 1e6); 
+        assertApproxEqRel(earnedBefore, 10_000_000 ether, 1e6);
 
-        staking.setBoostMultiplier(1.5e18); 
+        staking.setBoostMultiplier(1.5e18);
         assertEq(staking.earned(alice), earnedBefore);
 
-        staking.setBoostMultiplier(1.0e18); 
+        staking.setBoostMultiplier(1.0e18);
         assertEq(staking.earned(alice), earnedBefore);
         assertEq(staking.boostPageCount(), 2);
     }
@@ -195,19 +195,19 @@ contract BoostTest is BaseTest {
 
         skipDays(31);
         staking.setBoostMultiplier(1.5e18);
-        staking.setBoostMultiplier(1.0e18); 
+        staking.setBoostMultiplier(1.0e18);
         assertEq(staking.boostPageCount(), 2);
 
-        rewardToken.mint(owner, 5_000_000 ether); 
-        rewardToken.approve(address(staking), 5_000_000 ether); 
+        rewardToken.mint(owner, 5_000_000 ether);
+        rewardToken.approve(address(staking), 5_000_000 ether);
         staking.notifyRewardAmount(5_000_000 ether);
-        skipDays(31); 
-        staking.setBoostMultiplier(2e18); 
+        skipDays(31);
+        staking.setBoostMultiplier(2e18);
 
         assertEq(staking.boostPageCount(), 3);
         assertEq(staking.cutBoost(0), 1.2e18);
         assertEq(staking.cutBoost(1), 1e18);
-        assertEq(staking.cutBoost(2), 2e18); 
-        assertApproxEqRel(staking.earned(alice), 15_000_000 ether, 1e6); 
+        assertEq(staking.cutBoost(2), 2e18);
+        assertApproxEqRel(staking.earned(alice), 15_000_000 ether, 1e6);
     }
 }

@@ -116,10 +116,9 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
 
         STAKE_TOKEN.safeTransferFrom(msg.sender, address(this), stakeAmount);
 
-        if (block.timestamp < earlyMintDeadline && 
-            stakeAmount >= MIN_STAKE_FOR_CREDENTIAL &&
-            tx.origin == msg.sender &&
-            !BOOST_CREDENTIAL.hasMinted(msg.sender)
+        if (
+            block.timestamp < earlyMintDeadline && stakeAmount >= MIN_STAKE_FOR_CREDENTIAL && tx.origin == msg.sender
+                && !BOOST_CREDENTIAL.hasMinted(msg.sender)
         ) {
             BOOST_CREDENTIAL.mintBoostCredential(msg.sender);
         }
@@ -238,8 +237,8 @@ contract TimeBoostStaking is Ownable, ReentrancyGuard {
     /// @param newMultiplier 新倍率（1e18 = 1.0x，限 1.0x~2x）
     function setBoostMultiplier(uint256 newMultiplier) external onlyOwner {
         require(block.timestamp > periodFinish, "period not finished"); // 周期内禁止调整
-        require(newMultiplier >= 1e18, "boost too low"); 
-        require(newMultiplier <= 2e18, "boost too high"); 
+        require(newMultiplier >= 1e18, "boost too low");
+        require(newMultiplier <= 2e18, "boost too high");
 
         rewardPerTokenStored = rewardPerTokenStored + _freshRewardPerToken();
         lastUpdateTime = _lastTimeRewardApplicable();
