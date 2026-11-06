@@ -74,7 +74,8 @@ staking/
 │   └── fork/ForkTest.t.sol      # 主网 Fork 集成测试
 ├── foundry.toml                 # Foundry 配置
 ├── remappings.txt               # 依赖路径映射
-└── README.md                    # 本文档
+├── README.md                    # 本文档
+└── SECURITY-REVIEW.md           # 自审报告
 ```
 
 ---
