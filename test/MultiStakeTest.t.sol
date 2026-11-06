@@ -71,4 +71,26 @@ contract MultiStakeTest is BaseTest {
         assertEq(staking.getUserStakeIds(alice).length, 2);
         assertEq(staking.getUserStakeIds(bob).length, 1);
     }
+
+    /// @notice 核算隔离：两笔不同倍率同时累计，各自奖励按有效份额独立计算
+    function test_MultipleStakes_RewardAccountingIsolated() public {
+        vm.prank(alice, alice);
+        staking.stake(100 ether, 1); // 1.2x → 有效份额 120
+        vm.prank(alice, alice);
+        staking.stake(200 ether, 3); // 2.0x → 有效份额 400
+        vm.prank(bob);
+        staking.stake(300 ether, 2); // 1.6x → 有效份额 480
+
+        skipDays(10);
+
+        uint256 dt = block.timestamp - staking.lastUpdateTime();
+        uint256 rpt = staking.rewardPerTokenStored() + (dt * staking.rewardRate() * 1e18) / staking.totalStaked();
+
+        uint256 aliceExpect = ((120 ether * rpt) / 1e18) + ((400 ether * rpt) / 1e18);
+        uint256 bobExpect = (480 ether * rpt) / 1e18;
+
+        assertApproxEqAbs(staking.earned(alice), aliceExpect, 3);
+        assertApproxEqAbs(staking.earned(bob), bobExpect, 3);
+        assertEq(staking.totalStaked(), 1000 ether);
+    }
 }

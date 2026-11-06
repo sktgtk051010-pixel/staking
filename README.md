@@ -2,9 +2,9 @@
 
 一个基于 Foundry 的 ERC20 质押挖矿协议：**质押 STAKE 代币，按周期预算获得 REWARD 代币奖励；支持多笔独立质押，每笔自选锁仓档位；持有早期 ERC1155 凭证的用户额外获得奖励加成。**
 
-[![Slither 0 High](https://img.shields.io/badge/Slither-0_High-success)](./SECURITY-REVIEW.md) [![Tests 75 passing](https://img.shields.io/badge/tests-75_passing-brightgreen)](./SECURITY-REVIEW.md) [![Security Self-Review](https://img.shields.io/badge/security-self--review-blue)](./SECURITY-REVIEW.md)
+[![Slither 0 High](https://img.shields.io/badge/Slither-0_High-success)](./SECURITY-REVIEW.md) [![Tests 78 passing](https://img.shields.io/badge/tests-78_passing-brightgreen)](./SECURITY-REVIEW.md) [![Security Self-Review](https://img.shields.io/badge/security-self--review-blue)](./SECURITY-REVIEW.md)
 
-**安全自查报告**：[`SECURITY-REVIEW.md`](./SECURITY-REVIEW.md) —— Slither 0.11.5 全量扫描（29 合约 / 101 detector，17 条结果逐条裁决：0 High、4 Medium 为定点数精度提示）+ 75 个测试全绿（本地 66 + 主网 Fork 9）。结论：**无需重新部署**。
+**安全自查报告**：[`SECURITY-REVIEW.md`](./SECURITY-REVIEW.md) —— Slither 0.11.5 全量扫描（29 合约 / 101 detector，17 条结果逐条裁决：0 High、4 Medium 为定点数精度提示）+ 78 个测试全绿（本地 69 + 主网 Fork 9）。结论：**无需重新部署**。
 
 ---
 
@@ -187,6 +187,7 @@ uint256 public constant MAX_STAKES_PER_USER = 50;  // 单地址最大活跃质�
 - 凭证本质是权益资产，早期参与者可转让给后来者，凭证本身具备流动性和市场价值
 - 可转让让早期参与者的贡献可以变现，也让后来者有机会通过购买凭证获得加成
 - 加成按**当前持有者**判定（`balanceOf(user, 0) >= 1`），凭证转给他人后原持有者不再享受加成，权益跟着凭证走
+- **转出前先领奖**：加成只在结算那一刻按当前持有者判定。若持有期间产生的奖励还没领取就转让，转让前那段区间会被按 1.0x 重算、加成作废（1000 ST 不锁仓、持证 10 天即转让，损失为该段基础奖励的 20%）；先调用 `getReward()` 再转让则无损失。详见 `SECURITY-REVIEW.md` SR-07 与 `test_CredentialTransfer_UnsettledBoostLost`
 
 ### 4.4 奖励计算公式
 
@@ -358,6 +359,7 @@ uint256 public constant MAX_STAKES_PER_USER = 50;  // 单地址最大活跃质�
 | 精度丢失 | 奖励与倍率均放大 1e18 计算 |
 | 提前提款 | 每笔独立校验 `block.timestamp >= unlockTime` |
 | 凭证重复铸造 | `hasMinted` 限制每地址最多铸 1 张；加成按当前持有者 `balanceOf >= 1` 判断 |
+| 凭证转让与未结算奖励 | 加成在结算时按当前持有者判定，未结算就转让会让转出前区间按 1.0x 重算（见 SR-07）；**先 `getReward()` 再转让**即可完全规避 |
 | 整数溢出 | Solidity 0.8.x 内置 overflow/underflow 检查 |
 
 ### 管理员信任假设

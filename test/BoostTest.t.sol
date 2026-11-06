@@ -210,4 +210,49 @@ contract BoostTest is BaseTest {
         assertEq(staking.cutBoost(2), 2e18);
         assertApproxEqRel(staking.earned(alice), 15_000_000 ether, 1e6);
     }
+
+    /// @notice 边界：未结算就转让凭证，转让前区间的加成按新持有者判定而作废
+    function test_CredentialTransfer_UnsettledBoostLost() public {
+        vm.prank(alice, alice);
+        staking.stake(1000 ether, 0);
+
+        skipDays(10);
+        uint256 rpt10 = (10 days * staking.rewardRate() * 1e18) / staking.totalStaked();
+        uint256 boosted10 = ((1000 ether * rpt10) / 1e18 * 12) / 10;
+
+        // 未调用 getReward 即转让
+        vm.prank(alice);
+        boostCredential.safeTransferFrom(alice, bob, 0, 1, "");
+
+        skipDays(5);
+        uint256 rpt5 = (5 days * staking.rewardRate() * 1e18) / staking.totalStaked();
+        uint256 rpt15 = (15 days * staking.rewardRate() * 1e18) / staking.totalStaked();
+        uint256 ideal = boosted10 + (1000 ether * rpt5) / 1e18;
+        uint256 actual = staking.earned(alice);
+
+        assertLt(actual, ideal, "unsettled boost lost");
+        assertApproxEqAbs(actual, (1000 ether * rpt15) / 1e18, 3, "all 15d unboosted");
+    }
+
+    /// @notice 边界：先结算再转让，已落袋的加成不受影响，后续按无加成累计
+    function test_CredentialTransfer_AfterSettle_NoLoss() public {
+        vm.prank(alice, alice);
+        staking.stake(1000 ether, 0);
+
+        skipDays(10);
+        uint256 rpt10 = (10 days * staking.rewardRate() * 1e18) / staking.totalStaked();
+
+        uint256 before = rewardToken.balanceOf(alice);
+        vm.prank(alice);
+        staking.getReward();
+        uint256 got = rewardToken.balanceOf(alice) - before;
+        assertApproxEqAbs(got, ((1000 ether * rpt10) / 1e18 * 12) / 10, 3, "settled at 1.2x");
+
+        vm.prank(alice);
+        boostCredential.safeTransferFrom(alice, bob, 0, 1, "");
+
+        skipDays(5);
+        uint256 rpt5 = (5 days * staking.rewardRate() * 1e18) / staking.totalStaked();
+        assertApproxEqAbs(staking.earned(alice), (1000 ether * rpt5) / 1e18, 3, "5d unboosted");
+    }
 }

@@ -55,7 +55,7 @@
 1. **静态分析**：Slither 0.11.5 + solc 0.8.24 + Foundry 1.7.1，全量扫描 `src/`（`--filter-paths "lib/" --exclude-dependencies`）。分析 29 个合约 / 101 个 detector，输出 **17 条结果：0 High、4 Medium、9 Low、3 Informational、1 Optimization**。
 2. **人工复核**：按 detector 分组复核，逐条判定误报 / 已缓解 / 真实缺陷；判据包括权限修饰器、可达性、定点数截断方向、CEI 顺序、重入锁。
 3. **权限链梳理**：从 owner、minter、凭证铸造者、用户四个角色出发，还原"谁能动什么"（见 §2.3）。
-4. **测试验证**：现有 Foundry 测试 75 个（本地 66 + 主网 Fork 9，全部通过）+ 关键安全性质映射（见第 6 章）；覆盖率口径见 §6.4。
+4. **测试验证**：现有 Foundry 测试 78 个（本地 69 + 主网 Fork 9，全部通过）+ 关键安全性质映射（见第 6 章）；覆盖率口径见 §6.4。
 
 ### 1.3 未覆盖范围
 
@@ -151,6 +151,7 @@ BoostCredential (ERC1155, id=0)  ← owner 已在部署时转给 Staking
 | SR-04 | Info（设计） | 凭证门槛依赖 `tx.origin`，合约钱包拿不到 | `TimeBoostStaking.sol#L47`、`#L119-124` | 已确认 |
 | SR-05 | Medium（设计） | owner 为单一 EOA，可增发并改全部参数 | `StakeToken.sol`、`RewardToken.sol`、`TimeBoostStaking.sol`（管理面） | 接受 |
 | SR-06 | Low | 定点数先除后乘，单笔误差 ≤ 2 wei | `TimeBoostStaking.sol#L107-112`、`#L287`、`#L300-310` | 接受 |
+| SR-07 | Low（设计） | 凭证转让按实时持有者判定，未结算区间加成作废 | `TimeBoostStaking.sol#L281`、`BoostCredential.sol#L31-33` | 接受 |
 
 ### SR-01 同切点覆盖末页的分段记账
 
@@ -253,6 +254,19 @@ BoostCredential (ERC1155, id=0)  ← owner 已在部署时转给 Staking
 - **建议**：详见 §4.2 裁决；当前规模无需改 `Math.mulDiv`。
 - **状态**：接受。
 
+### SR-07 凭证转让按实时持有者判定
+
+- **位置**：`TimeBoostStaking.sol#L281`、`BoostCredential.sol#L31-33`
+- **代码**：
+  ```solidity
+  // _accrueReward：每次结算现查凭证余额
+  bool boosted = BOOST_CREDENTIAL.userHasBoost(user);
+  ```
+- **描述**：加成资格不按"持有区间"记账，而是在每次结算时按**当前**余额判定；`rewardDebt` 只记位置、不含加成。
+- **影响链**：持证用户未结算就转让 → 下次结算时 `boosted = false` → 转让前那段本应 1.2x 的区间被按 1.0x 重算。实测见 `test_CredentialTransfer_UnsettledBoostLost`：1000 ST 不锁仓质押、持证 10 天后未结算即转让，损失为该 10 天基础奖励的 20%；先 `getReward()` 再转让则无损失（`test_CredentialTransfer_AfterSettle_NoLoss`）。
+- **建议**：前端/文档提示"先领奖、再转让凭证"；彻底修复需在 ERC1155 转账回调里触发结算或按持有区间记账，成本高于收益，本次不做。
+- **状态**：接受（用户可主动规避，不改变全池预算上限）。
+
 ---
 
 ## 4. Slither 工具输出裁决
@@ -325,6 +339,7 @@ Slither 是模式匹配型静态分析，**不检查业务语义与经济不变�
 | 空池期与预算沉淀 / 误转入资产滞留 | §八 风险 3（L337-346） | SR-03 |
 | 其他安全设计（SafeERC20 / 精度 / 提前提款 / 凭证去重 / 溢出） | §八"其他安全设计"（L348-356） | SR-04、SR-06 |
 | 管理员信任假设（单点 EOA） | §八"管理员信任假设"（L358-362） | SR-05 |
+| 凭证加成资格变化（未结算转让） | §八"其他安全设计"（L348-356） | SR-07 |
 
 ---
 
@@ -336,11 +351,11 @@ Slither 是模式匹配型静态分析，**不检查业务语义与经济不变�
 |------|--------|----------|
 | `AdminTest.t.sol` | 28 | 通知奖励、周期、档位、倍率、凭证窗口、倍率变更经济性、全周期预算平衡 |
 | `StakingTest.t.sol` | 21 | 质押/领奖/取回、锁仓、多笔上限、空池、预算守恒 |
-| `BoostTest.t.sol` | 13 | 凭证铸造/转让/加成、女巫门槛、分段覆盖语义 |
-| `MultiStakeTest.t.sol` | 4 | 多笔独立解锁、多用户多笔 |
+| `BoostTest.t.sol` | 15 | 凭证铸造/转让/加成、女巫门槛、分段覆盖语义、转让结算边界 |
+| `MultiStakeTest.t.sol` | 5 | 多笔独立解锁、多用户多笔、奖励核算隔离 |
 | `ForkTest.t.sol` | 9 | 主网 Fork 基本流程验证（部署→质押→领奖→取回→凭证→到期，本次 9/9 通过） |
-| **合计（本地）** | **66** | 全部通过（`forge test --no-match-contract ForkTest`） |
-| **合计（含 Fork）** | **75** | Fork 9 条已单独跑通（`forge test --match-contract ForkTest`） |
+| **合计（本地）** | **69** | 全部通过（`forge test --no-match-contract ForkTest`） |
+| **合计（含 Fork）** | **78** | Fork 9 条已单独跑通（`forge test --match-contract ForkTest`） |
 
 ### 6.2 关键性质 → 测试映射
 
@@ -358,6 +373,9 @@ Slither 是模式匹配型静态分析，**不检查业务语义与经济不变�
 | 锁仓未到期不可取回 | `test_Unstake_RevertWhen_StillLocked` | `StakingTest.t.sol` L150 |
 | 空池后可继续质押 | `test_Stake_AfterEmptyPool_Works` | `StakingTest.t.sol` L260 |
 | 周期结束后奖励停止累计 | `test_RewardStopsAfterPeriod` | `StakingTest.t.sol` L239 |
+| 多笔质押奖励核算互不串账 | `test_MultipleStakes_RewardAccountingIsolated` | `MultiStakeTest.t.sol` L76 |
+| 凭证未结算即转让的加成损失（设计边界） | `test_CredentialTransfer_UnsettledBoostLost` | `BoostTest.t.sol` L215 |
+| 先结算再转让凭证无损失 | `test_CredentialTransfer_AfterSettle_NoLoss` | `BoostTest.t.sol` L238 |
 
 ### 6.3 复现命令
 
@@ -387,7 +405,7 @@ forge coverage --no-match-contract ForkTest
 ### 7.1 总体结论
 
 - **无 Critical / High 级问题**；Slither 17 条结果中 4 条 Medium 均为同根因的定点数截断提示，经量化裁决为可接受（误差 ≤ 2 wei/笔·次）；
-- 3 个核心业务不变量（预算不超发、历史奖励不被覆盖、多笔独立）分别有专项测试守护，且 75 个测试全绿（本地 66 + 主网 Fork 9）；
+- 3 个核心业务不变量（预算不超发、历史奖励不被覆盖、多笔独立）分别有专项测试守护，且 78 个测试全绿（本地 69 + 主网 Fork 9）；
 - Sepolia 部署与双通道源码验证完成，链上字节码与本地源码一致。
 
 ### 7.2 是否需要重新部署
@@ -403,5 +421,6 @@ forge coverage --no-match-contract ForkTest
 | **P2** | 段表结算改二分定位（SR-02），仅当累计段数达数百 | 长期运营后 |
 | **P2** | 精度改用 `Math.mulDiv`（SR-06）、缓存循环 length（§4.3） | 有 gas/精度优化需求时 |
 | **P2** | 沉淀资产回收函数（SR-03） | 产品需要回收空池沉淀时（需重新设计记账，避免破坏预算守恒） |
+| **P2** | 前端提示“先领奖再转让凭证”（SR-07）；README §4.3 与 §八 已写明，剩余前端入口 | 有前端交互入口时 |
 
 ---
