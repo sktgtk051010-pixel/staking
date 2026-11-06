@@ -2,6 +2,10 @@
 
 一个基于 Foundry 的 ERC20 质押挖矿协议：**质押 STAKE 代币，按周期预算获得 REWARD 代币奖励；支持多笔独立质押，每笔自选锁仓档位；持有早期 ERC1155 凭证的用户额外获得奖励加成。**
 
+[![Slither 0 High](https://img.shields.io/badge/Slither-0_High-success)](./SECURITY-REVIEW.md) [![Tests 75 passing](https://img.shields.io/badge/tests-75_passing-brightgreen)](./SECURITY-REVIEW.md) [![Security Self-Review](https://img.shields.io/badge/security-self--review-blue)](./SECURITY-REVIEW.md)
+
+**安全自查报告**：[`SECURITY-REVIEW.md`](./SECURITY-REVIEW.md) —— Slither 0.11.5 全量扫描（29 合约 / 101 detector，17 条结果逐条裁决：0 High、4 Medium 为定点数精度提示）+ 75 个测试全绿（本地 66 + 主网 Fork 9）。结论：**无需重新部署**。
+
 ---
 
 ## 目录
