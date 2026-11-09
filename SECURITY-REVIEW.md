@@ -48,7 +48,9 @@
 | 测试 | `test/AdminTest.t.sol`、`test/BoostTest.t.sol`、`test/StakingTest.t.sol`、`test/MultiStakeTest.t.sol`、`test/base/BaseTest.t.sol` |
 | Fork 测试 | `test/fork/ForkTest.t.sol` |
 
-`src/` 共 4 个业务合约、339 行；`test/` 共 6 个文件、884 行。
+`src/` 共 4 个业务合约、339 行；`test/` 共 6 个文件、936 行（统计口径：非空行；含空行分别为 415 / 1,190 行）。
+
+> 链上已验证源码对应提交 `b5efaa3`；此后 `src/` 仅修订过 `BoostCredential.sol` 的 `@dev` 注释，逻辑与字节码主体未变，metadata 哈希随之变化。
 
 ### 1.2 方法与工具
 
@@ -134,7 +136,7 @@ BoostCredential (ERC1155, id=0)  ← owner 已在部署时转给 Staking
 | owner | `setBoostMultiplier` | 改凭证加成（1.0x~2x，仅周期结束后） | 仅影响调整后新增奖励（分段记账） |
 | owner | `setEarlyMintDeadline` | 延长/缩短凭证窗口 | 影响凭证发放范围 |
 | owner | ST/RT `mint` | **无限增发两种代币** | 最大中心化风险：可凭空增发 RT 注入或 ST 稀释 |
-| owner（经 Staking 转发） | `mintBoostCredential` | 发凭证 | 受 `hasMinted` 限制，每地址一张 |
+| owner（经 Staking 转发） | `mintBoostCredential` | 发凭证 | 受 `hasMinted` 限制，每地址最多铸造一张 |
 | 任意用户 | `stake` / `getReward` / `unstake` | 存取本金、领奖 | 无权限门槛 |
 
 **信任假设**：owner 为单一 EOA，无多签、无时间锁。管理员密钥泄露 = 可增发代币、改奖励参数。这是本项目最大的中心化风险（详见 §3 SR-05 与 README §八"管理员信任假设"）。
@@ -280,7 +282,7 @@ BoostCredential (ERC1155, id=0)  ← owner 已在部署时转给 Staking
 | 分析规模 | 29 contracts / 101 detectors |
 | 结果总数 | 17 条 |
 | 严重性分布 | High **0** / Medium **4** / Low **9** / Informational **3** / Optimization **1** |
-| 原始输出 | `slither-report.json`、`slither-console.txt`（项目根） |
+| 原始输出 | 未随仓库分发；复现命令见本表第 2 行 |
 
 | Detector | Impact / Confidence | 条数 | 位置摘要 |
 |----------|--------------------|------|----------|
@@ -326,6 +328,8 @@ BoostCredential (ERC1155, id=0)  ← owner 已在部署时转给 Staking
 
 Slither 是模式匹配型静态分析，**不检查业务语义与经济不变量**。本项目最关键的三个性质——预算不超发、历史奖励不被新倍率覆盖、多笔质押互不干扰——Slither 都无法验证，只能靠人工走查（§3 SR-01）与测试（第 6 章）证明。因此"Slither 0 High"不能单独作为安全结论，必须与测试证据联合阅读。
 
+本报告结论基于一次完整扫描（29 contracts / 101 detectors / 17 条），读者可按 §4.1 的命令原样复现自证。
+
 ---
 
 ## 5. 风险维度索引
@@ -334,12 +338,12 @@ Slither 是模式匹配型静态分析，**不检查业务语义与经济不变�
 
 | 风险维度 | README 位置 | 本报告对应 |
 |----------|-------------|-----------|
-| 奖励超发（Reward Over-distribution） | §八 风险 1（L314-325） | SR-01、§4.2 |
-| 重入攻击（Reentrancy） | §八 风险 2（L327-335） | §2.2 CEI 顺序 + `nonReentrant` |
-| 空池期与预算沉淀 / 误转入资产滞留 | §八 风险 3（L337-346） | SR-03 |
-| 其他安全设计（SafeERC20 / 精度 / 提前提款 / 凭证去重 / 溢出） | §八"其他安全设计"（L348-356） | SR-04、SR-06 |
-| 管理员信任假设（单点 EOA） | §八"管理员信任假设"（L358-362） | SR-05 |
-| 凭证加成资格变化（未结算转让） | §八"其他安全设计"（L348-356） | SR-07 |
+| 奖励超发（Reward Over-distribution） | §八 风险 1 | SR-01、§4.2 |
+| 重入攻击（Reentrancy） | §八 风险 2 | §2.2 CEI 顺序 + `nonReentrant` |
+| 空池期与预算沉淀 / 误转入资产滞留 | §八 风险 3 | SR-03 |
+| 其他安全设计（SafeERC20 / 精度 / 提前提款 / 凭证去重 / 溢出） | §八"其他安全设计" | SR-04、SR-06 |
+| 管理员信任假设（单点 EOA） | §八"管理员信任假设" | SR-05 |
+| 凭证加成资格变化（未结算转让） | §八"其他安全设计" | SR-07 |
 
 ---
 
@@ -396,7 +400,7 @@ forge coverage --no-match-contract ForkTest
 
 ### 6.4 覆盖率快照
 
-行覆盖率 **84.73% (172/203)**、语句 82.71% (177/214)、分支 96.36% (53/55)、函数 96.67% (29/30)。逐文件明细见 README §九"测试覆盖率"表（同一口径）。`script/Deploy.s.sol` 0% 属正常（部署脚本不参与业务测试）。
+行覆盖率 **84.73% (172/203)**、语句 82.71% (177/214)、分支 96.36% (53/55)、函数 96.67% (29/30)。逐文件明细见 README §九"测试覆盖率"表（同一口径）。`script/Deploy.s.sol` 0% 属正常（部署脚本不参与业务测试）。该快照由 forge 1.7.1 + solc 0.8.24 生成；换工具版本重跑可能产生小数位差异。
 
 ### 6.5 独立手算核对（连续操作）
 

@@ -164,7 +164,7 @@ uint256 public constant MAX_STAKES_PER_USER = 50;  // 单地址最大活跃质�
 
 ### 4.3 ERC1155 早期参与凭证
 
-**思路**：项目早期（部署后前 7 天），由 EOA 亲手发起、单笔质押 ≥ 1000 ST（`MIN_STAKE_FOR_CREDENTIAL`）的用户自动获得 1 张 ERC1155 凭证（每个地址最多 1 张）；持有凭证的用户所有质押笔奖励**额外 ×boostMultiplier（默认 1.2x）**。
+**思路**：项目早期（部署后前 7 天），由 EOA 亲手发起、单笔质押 ≥ 1000 ST（`MIN_STAKE_FOR_CREDENTIAL`）的用户自动获得 1 张 ERC1155 凭证（每个地址最多铸造 1 张；转让后可持有他人转入的多张，加成按 `balanceOf ≥ 1` 判定）；持有凭证的用户所有质押笔奖励**额外 ×boostMultiplier（默认 1.2x）**。
 
 **"早期"的定义：部署后前 7 天（合约按时间戳自动判断）**
 - 部署时合约自动设定 `earlyMintDeadline = block.timestamp + 7 days`
@@ -310,6 +310,7 @@ uint256 public constant MAX_STAKES_PER_USER = 50;  // 单地址最大活跃质�
 | `setLockTier(uint256, uint256, uint256)` | 调整锁仓档位（下标、时长、倍率；时长须 > 0，倍率限 1.0x~5x） |
 | `setBoostMultiplier(uint256)` | 调整凭证加成倍率（默认 1.2e18，限 1.0x~2x；仅可在周期结束后调整；调整点之前已产生未领取的奖励按原倍率分段结算） |
 | `setEarlyMintDeadline(uint256)` | 调整早期凭证窗口截止时间（仅可设未来时间） |
+| `boostPageCount()` | 只读查询当前分段表（`cutBoost`）页数，供测试与监控使用（非管理动作） |
 
 > 部署时需将 `BoostCredential` 的 owner 转给 `TimeBoostStaking`，否则 `stake()` 中自动铸凭证会因权限失败。
 
@@ -373,7 +374,7 @@ uint256 public constant MAX_STAKES_PER_USER = 50;  // 单地址最大活跃质�
 ## 九、开发环境与使用
 
 ### 环境要求
-- Foundry（forge 1.x）
+- Foundry 1.7.1（CI 与本地锁定同一版本）
 - Solidity 0.8.24
 
 ### 安装依赖
@@ -423,6 +424,8 @@ forge coverage --no-match-contract ForkTest
 | **Total** | **84.73% (172/203)** | **82.71% (177/214)** | **96.36% (53/55)** | **96.67% (29/30)** |
 
 > `script/Deploy.s.sol` 为部署脚本，不参与业务逻辑测试，覆盖率 0% 属正常
+>
+> 本表为 **forge 1.7.1 + solc 0.8.24** 的同一次快照；换工具版本重跑可能出现小数位差异。
 
 ### 部署（Sepolia 示例）
 ```bash
@@ -445,4 +448,4 @@ forge script script/Deploy.s.sol:DeployScript \
 | `TimeBoostStaking` | `0xCaD0761E59B545A70399EdEbBa090cab5Ff8F230` |
 
 - 初始奖励：100,000 RT 已注入，`rewardRate ≈ 3.215 × 10^16 wei/秒`
-- 源码验证已通过
+- 源码验证已通过（Etherscan Standard JSON Input，对应提交 `b5efaa3`）
